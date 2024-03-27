@@ -6,8 +6,9 @@ services:
       - "${PORT}:${PORT}"
     volumes:
       - /mnt/data/tdolega/models/:/models/
+      - ./api_keys.txt:/api_keys.txt
 
-    command: --server --host 0.0.0.0 --port ${PORT} -m /models/${MODEL_FILE} -np ${NP} -c ${CTX_SIZE} --embedding
+    command: --server --host 0.0.0.0 --port ${PORT} -m /models/${MODEL_FILE} -cb -np ${NP} -c ${CTX_SIZE} -ngl ${NGL} --api-key-file /api_keys.txt --embedding
 
 
   # llamacpp-convert:

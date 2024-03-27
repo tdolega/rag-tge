@@ -53,7 +53,7 @@ def obj_to_filename(obj):
 def filename_to_obj(filename):
     assert filename.endswith(".jsonl")
     filename = filename.split("/")[-1][:-6]
-    return {k: v for kv in filename.split("__") for k, v in kv.split("=")}
+    return {k: v for k, v in [kv.split("=") for kv in filename.split("__")]}
 
 
 def results_as_pandas(filename):

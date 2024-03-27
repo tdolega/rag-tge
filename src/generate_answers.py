@@ -1,7 +1,7 @@
 import argparse
 import json
 from tqdm.auto import tqdm
-import random
+import time
 
 from common.llms.llms import get_llm, add_llm_args
 from common.utils import get_start_idx, get_dataset, merge_sentences, obj_to_filename
@@ -39,6 +39,7 @@ def generate_answers(dataset, llm, prompt_id, n_samples):
         for _ in range(n_samples):
             _, answer = llm.generate(*prompts)
             answers.append(answer)
+            # time.sleep(0.5) #! check if this is necessary
         output_json = {"question_id": row["id"], "answers": answers}
         output_handle.write(json.dumps(output_json) + "\n")
         output_handle.flush()

@@ -32,7 +32,7 @@ def evaluate_citations(dataset_row, answer, nli, nlg):
         n_out_of_range = len([ref for ref in refs if ref >= len(passages)])
         if n_out_of_range > 0:  # * citation out of range
             out_of_range[sentence_idx] = n_out_of_range
-            refs = [ref for ref in refs if ref < len(passages)]  # * fix it
+            refs = [ref for ref in refs if ref < len(passages)]  # * remove out of range citations
         citations[sentence_idx] = refs
 
         # * calculate the recall score
