@@ -1,0 +1,7 @@
+openai
+notebook
+tqdm
+torch
+transformers
+nltk
+scikit-learn
