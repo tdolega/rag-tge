@@ -19,9 +19,10 @@ def get_start_idx(filename):
     return start_idx
 
 
-def get_dataset(limit=None):
-    dataset = load_dataset("hotpot_qa", "distractor", split="train")
-    dataset = dataset.filter(lambda row: row["level"] == "easy", num_proc=os.cpu_count())
+def get_dataset(limit=None, split="train", level="easy"):
+    dataset = load_dataset("hotpot_qa", "distractor", split=split)
+    if level is not None:
+        dataset = dataset.filter(lambda row: row["level"] == level, num_proc=os.cpu_count())
     dataset = dataset.shuffle(seed=102)
     if limit is not None:
         dataset = dataset.select(range(limit))
@@ -54,27 +55,3 @@ def filename_to_obj(filename):
     assert filename.endswith(".jsonl")
     filename = filename.split("/")[-1][:-6]
     return {k: v for k, v in [kv.split("=") for kv in filename.split("__")]}
-
-
-def results_as_pandas(filename):
-    path = os.path.join(RESULTS_DIR, filename)
-    with open(path, "r") as f:
-        data = f.readlines()
-    data = [json.loads(d) for d in data]
-    data = pd.DataFrame(data)
-
-    params = filename_to_obj(filename)
-    for k, v in params.items():
-        data[k] = v
-
-    data = data.explode("evaluations")
-    data = data.rename_axis("question_idx").reset_index()
-
-    data = pd.concat([data, data["evaluations"].apply(pd.Series)], axis=1)
-    evaluation_keys = data["evaluations"].apply(pd.Series).columns
-    for col in evaluation_keys:
-        data = pd.concat([data, data[col].apply(pd.Series).add_prefix(f"{col}/")], axis=1)
-        data = data.drop(columns=col)
-    data = data.drop(columns=["evaluations"])
-
-    return data

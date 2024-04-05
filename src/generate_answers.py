@@ -19,7 +19,9 @@ def create_prompt(row, prompt_id):
     return user_prompt, system_prompt
 
 
-def generate_answers(dataset, llm, prompt_id, n_samples):
+def generate_answers(llm, prompt_id, n_samples, dataset_limit):
+    dataset = get_dataset(dataset_limit)
+
     output_file = obj_to_filename(
         {
             "llm": llm.model_name,
@@ -55,6 +57,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print("args:", args)
 
-    dataset = get_dataset(args.limit)
     llm = get_llm(args)
-    generate_answers(dataset, llm, args.prompt_id, args.n_samples)
+    generate_answers(llm, args.prompt_id, args.n_samples, args.limit)

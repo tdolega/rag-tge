@@ -1,4 +1,5 @@
 services:
+
   llamacpp-server:
     container_name: "llamacpp-server"
     image: ghcr.io/ggerganov/llama.cpp:full-cuda
@@ -10,10 +11,19 @@ services:
 
     command: --server --host 0.0.0.0 --port ${PORT} -m /models/${MODEL_FILE} -cb -np ${NP} -c ${CTX_SIZE} -ngl ${NGL} --api-key-file /api_keys.txt --embedding
 
-
   # llamacpp-convert:
   #   container_name: "llamacpp-convert"
   #   image: ghcr.io/ggerganov/llama.cpp:full-cuda
   #   volumes:
-  #     - /mnt/data/tdolega/models/:/models/
-  #   command: yo
+  #     - /home/tdolega/temp/Bielik-7B-Instruct-v0.1:/repo
+  #   command: -c /repo
+
+  # llamacpp-quantize:
+  #   container_name: "llamacpp-quantize"
+  #   image: ghcr.io/ggerganov/llama.cpp:full-cuda
+  #   volumes:
+  #     - /home/tdolega/temp/Bielik-7B-Instruct-v0.1:/repo
+  #   command: -q /repo/ggml-model-f32.gguf Q8_0
+  #   # command: -q /repo/ggml-model-f32.gguf Q6_K
+  #   # command: -q /repo/ggml-model-f32.gguf Q5_K
+  #   # command: -q /repo/ggml-model-f32.gguf Q4_K

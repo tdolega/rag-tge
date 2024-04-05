@@ -4,7 +4,7 @@ from common.llms.base import LLM_BASE
 
 class LLM_GPT(LLM_BASE):
     def __init__(self, model_name):
-        self.client = OpenAI(model_name)
+        self.client = OpenAI()
         self.model_name = model_name
 
     def generate_chat(self, user_prompt: str, system_prompt: str):
