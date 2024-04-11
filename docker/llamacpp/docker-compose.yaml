@@ -4,12 +4,12 @@ services:
     container_name: "llamacpp-server"
     image: ghcr.io/ggerganov/llama.cpp:full-cuda
     ports:
-      - "${PORT}:${PORT}"
+      - "${LLAMA_PORT}:${LLAMA_PORT}"
     volumes:
       - /mnt/data/tdolega/models/:/models/
       - ./api_keys.txt:/api_keys.txt
 
-    command: --server --host 0.0.0.0 --port ${PORT} -m /models/${MODEL_FILE} -cb -np ${NP} -c ${CTX_SIZE} -ngl ${NGL} --api-key-file /api_keys.txt --embedding
+    command: --server --host 0.0.0.0 --port ${LLAMA_PORT} -m /models/${MODEL_FILE} -cb -np ${NP} -c ${CTX_SIZE} -ngl ${NGL} --api-key-file /api_keys.txt --embedding
 
   # llamacpp-convert:
   #   container_name: "llamacpp-convert"

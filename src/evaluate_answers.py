@@ -119,6 +119,8 @@ def evaluate_quality(dataset_row, answer, nli, nlg):
     _, new_question = nlg.generate(system_prompt="Generate a question for the given answer.", user_prompt=f"answer: {answer}")
     if new_question.lower().startswith("question: "):
         new_question = new_question[10:]
+    if "\n" in new_question:
+        new_question = new_question.split("\n")[0]
     _, new_question_emb = nlg.embed(new_question)
     answer_relevance = cosine_similarity([question_emb], [new_question_emb])[0][0]
 
