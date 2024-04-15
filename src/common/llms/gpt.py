@@ -15,6 +15,7 @@ class LLM_GPT(LLM_BASE):
                 {"role": "user", "content": user_prompt},
             ],
             temperature=self.temperature,
+            max_tokens=self.max_new_tokens,
         )
         return response, response.choices[0].message.content.strip()
 

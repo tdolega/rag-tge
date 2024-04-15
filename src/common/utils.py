@@ -4,10 +4,6 @@ from datasets import load_dataset
 
 from common.prompts import PROMPTS
 
-RESULTS_DIR = "../data/results/"
-ANSWERS_DIR = "../data/answers/"
-EVAL_SIZE = 100
-
 
 def get_start_idx(filename):
     if not os.path.exists(filename):
@@ -58,11 +54,13 @@ def filename_to_obj(filename):
     filename = filename.split("/")[-1][:-6]
     return {k: v for k, v in [kv.split("=") for kv in filename.split("__")]}
 
+
 # remove column from dataframe that is used as index
 def remove_index(df, column_name):
     keep_indexes = list(df.index.names)
     keep_indexes.remove(column_name)
     return df.reset_index().set_index(keep_indexes)
+
 
 def is_object_subset(subset, superset):
     return all([superset[k] == v for k, v in subset.items()])
@@ -78,3 +76,22 @@ def create_prompt(row, prompt_id):
 
     return user_prompt, system_prompt
 
+
+def add_chatml_support(model, tokenizer):
+    PAD_TOKEN = "</s>"
+    BOS_TOKEN = "<|im_start|>"
+    EOS_TOKEN = "<|im_end|>"
+
+    # todo: check if these tokens are already in the tokenizer
+
+    tokenizer.pad_token = PAD_TOKEN
+    tokenizer.add_tokens([BOS_TOKEN])
+    tokenizer.add_special_tokens(dict(eos_token=EOS_TOKEN))
+
+    # ChatML template, from https://huggingface.co/docs/transformers/main/chat_templating
+    tokenizer.chat_template = "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
+
+    model.resize_token_embeddings(len(tokenizer))
+    model.config.eos_token_id = tokenizer.eos_token_id
+
+    return model, tokenizer

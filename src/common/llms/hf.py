@@ -26,6 +26,7 @@ class LLM_HF(LLM_BASE):
             trust_remote_code=True,
             do_sample=True,
             # top_k=10,
+            max_new_tokens=self.max_new_tokens,
             model_kwargs={
                 "load_in_4bit": quantize == 4,
                 "load_in_8bit": quantize == 8,

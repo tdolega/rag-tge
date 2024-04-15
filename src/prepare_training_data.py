@@ -3,11 +3,16 @@ import json
 import datasets
 import pandas as pd
 
-from common.utils import RESULTS_DIR, ANSWERS_DIR, EVAL_SIZE, filename_to_obj, is_object_subset, create_prompt, get_dataset
+from common.consts import (
+    ANSWERS_DIR,
+    RESULTS_DIR,
+    EVAL_SIZE,
+    BEST_PROMPT_ID,
+    DS_SAVE_PATH,
+    DS_UPLOAD_PATH,
+)
+from common.utils import filename_to_obj, is_object_subset, create_prompt, get_dataset
 
-PROMPT_ID = 1
-SAVE_PATH = "../data/training_ds"
-UPLOAD_PATH = "tdolega/rag-tge_finetuning-dataset"
 
 def load_all_jsonl_files(path):
     files = os.listdir(path)
@@ -19,6 +24,7 @@ def load_all_jsonl_files(path):
             loaded.append((filename, data))
     return loaded
 
+
 def satisfy_train_requirements(result):
     if result["citations"]["ais_recall"] < 1:
         return False
@@ -29,6 +35,7 @@ def satisfy_train_requirements(result):
     if result["quality"]["answer_relevance"] < 0.4:
         return False
     return True
+
 
 def get_training_answers():
     answers = load_all_jsonl_files(ANSWERS_DIR)
@@ -74,7 +81,7 @@ def get_training_answers():
                     continue
                 unique_answers.add(answer)
                 training_data.append((answer_row["question_id"], answer))
-            
+
     print(f"skipped {n_duplicate_answers:_} duplicate answers")
     questions_ids = set([question_id for question_id, _ in training_data])
     examples_perc = 100 * len(training_data) / n_processed_examples
@@ -83,15 +90,23 @@ def get_training_answers():
     print(f"questions kept {len(questions_ids):_} / {n_processed_questions:_} ({questions_perc:.2f}%)")
     return training_data
 
+
 def append_questions(training_answers):
     dataset = get_dataset()
     dataset_idx_from_id = {item["id"]: idx for idx, item in enumerate(dataset)}
     training_data = []
     for question_id, answer in training_answers:
         dataset_row = dataset[dataset_idx_from_id[question_id]]
-        user_prompt, system_prompt = create_prompt(dataset_row, PROMPT_ID)
-        training_data.append({"system_prompt": system_prompt, "user_prompt": user_prompt, "answer": answer})
+        user_prompt, system_prompt = create_prompt(dataset_row, BEST_PROMPT_ID)
+        training_data.append(
+            {
+                "system_prompt": system_prompt,
+                "user_prompt": user_prompt,
+                "answer": answer,
+            }
+        )
     return training_data
+
 
 def create_dataset(data, test_size=80):
     dataset = datasets.Dataset.from_pandas(pd.DataFrame(data=data))
@@ -100,9 +115,10 @@ def create_dataset(data, test_size=80):
     print(dataset)
     return dataset
 
+
 if __name__ == "__main__":
     training_answers = get_training_answers()
     training_data = append_questions(training_answers)
     training_ds = create_dataset(training_data)
-    training_ds.save_to_disk(SAVE_PATH)
-    training_ds.push_to_hub(UPLOAD_PATH)
+    training_ds.save_to_disk(DS_SAVE_PATH)
+    training_ds.push_to_hub(DS_UPLOAD_PATH)

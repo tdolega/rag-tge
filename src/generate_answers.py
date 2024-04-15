@@ -7,7 +7,6 @@ from common.llms.llms import get_llm, add_llm_args
 from common.utils import get_start_idx, get_dataset, create_prompt, obj_to_filename
 
 
-
 def generate_answers(llm, prompt_id, n_samples, dataset_limit):
     dataset = get_dataset(dataset_limit)
 
@@ -37,10 +36,28 @@ def generate_answers(llm, prompt_id, n_samples, dataset_limit):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(prog="generate_answers", description="Generate answers for a dataset of questions.")
-    parser.add_argument("--limit", type=int, default=None, help="limit the number of questions to generate answers for; default=None")
-    parser.add_argument("--prompt_id", type=int, default=1, help="prompt id from `common/prompts.py` to use; default=1")
-    parser.add_argument("--n_samples", type=int, default=3, help="number of answers to generate for each question; default=3")
+    parser = argparse.ArgumentParser(
+        prog="generate_answers",
+        description="Generate answers for a dataset of questions.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="limit the number of questions to generate answers for; default=None",
+    )
+    parser.add_argument(
+        "--prompt_id",
+        type=int,
+        default=1,
+        help="prompt id from `common/prompts.py` to use; default=1",
+    )
+    parser.add_argument(
+        "--n_samples",
+        type=int,
+        default=3,
+        help="number of answers to generate for each question; default=3",
+    )
     add_llm_args(parser)
     args = parser.parse_args()
     print("args:", args)
