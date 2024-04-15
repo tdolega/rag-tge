@@ -4,19 +4,8 @@ from tqdm.auto import tqdm
 import time
 
 from common.llms.llms import get_llm, add_llm_args
-from common.utils import get_start_idx, get_dataset, merge_sentences, obj_to_filename
-from common.prompts import PROMPTS
+from common.utils import get_start_idx, get_dataset, create_prompt, obj_to_filename
 
-
-def create_prompt(row, prompt_id):
-    system_prompt = PROMPTS[prompt_id].replace("\n", " ").strip()
-
-    user_prompt = ""
-    for i, (title, sentences) in enumerate(zip(row["context"]["title"], row["context"]["sentences"])):
-        user_prompt += f"Document [{i+1}](Title: {title}): {merge_sentences(sentences)}\n"
-    user_prompt += f"Question: {row['question']}"
-
-    return user_prompt, system_prompt
 
 
 def generate_answers(llm, prompt_id, n_samples, dataset_limit):
@@ -41,7 +30,6 @@ def generate_answers(llm, prompt_id, n_samples, dataset_limit):
         for _ in range(n_samples):
             _, answer = llm.generate(*prompts)
             answers.append(answer)
-            # time.sleep(0.5) #! check if this is necessary
         output_json = {"question_id": row["id"], "answers": answers}
         output_handle.write(json.dumps(output_json) + "\n")
         output_handle.flush()

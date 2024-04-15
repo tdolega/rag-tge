@@ -1,10 +1,12 @@
 import os
 import re
 from datasets import load_dataset
-import pandas as pd
-import json
+
+from common.prompts import PROMPTS
 
 RESULTS_DIR = "../data/results/"
+ANSWERS_DIR = "../data/answers/"
+EVAL_SIZE = 100
 
 
 def get_start_idx(filename):
@@ -55,3 +57,24 @@ def filename_to_obj(filename):
     assert filename.endswith(".jsonl")
     filename = filename.split("/")[-1][:-6]
     return {k: v for k, v in [kv.split("=") for kv in filename.split("__")]}
+
+# remove column from dataframe that is used as index
+def remove_index(df, column_name):
+    keep_indexes = list(df.index.names)
+    keep_indexes.remove(column_name)
+    return df.reset_index().set_index(keep_indexes)
+
+def is_object_subset(subset, superset):
+    return all([superset[k] == v for k, v in subset.items()])
+
+
+def create_prompt(row, prompt_id):
+    system_prompt = PROMPTS[prompt_id].replace("\n", " ").strip()
+
+    user_prompt = ""
+    for i, (title, sentences) in enumerate(zip(row["context"]["title"], row["context"]["sentences"])):
+        user_prompt += f"Document [{i+1}](Title: {title}): {merge_sentences(sentences)}\n"
+    user_prompt += f"Question: {row['question']}"
+
+    return user_prompt, system_prompt
+
