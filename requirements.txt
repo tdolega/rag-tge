@@ -1,7 +1,18 @@
-openai
-notebook
-tqdm
-torch
-transformers
+accelerate
+bitsandbytes
+datasets
+flash-attn # --no-build-isolation
+ninja
 nltk
+notebook
+openai
+peft
+protobuf
 scikit-learn
+sentencepiece
+torch
+torch
+tqdm
+transformers
+trl
+wandb

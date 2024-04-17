@@ -5,222 +5,218 @@ from datasets import load_dataset
 from transformers import TrainingArguments, DataCollatorForLanguageModeling
 from trl import SFTTrainer
 from datetime import timedelta
+from distutils.util import strtobool
 
-from common.consts import DS_UPLOAD_PATH
+from common.consts import DS_UPLOAD_PATH, MODELS_DIR
 from common.utils import add_chatml_support
 
-# todo: make this into functions
-# todo: move all those constants to args
 # todo: learn only responses, not prompts (set attention correctly)
 
-# general
-dataset_name = DS_UPLOAD_PATH
-input_model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-output_model_name = "rag-tge_TinyLlama_LoRA"
-resume_from_checkpoint = False
-use_unsloth = False
+WANDB_DIR = ".wandb"
+os.environ["WANDB_DIR"] = WANDB_DIR
+os.makedirs(WANDB_DIR, exist_ok=True)
 
-# base
-load_in_4bit = False
-max_seq_length = 2048
-use_flash_attention_2 = True
+models_dir = MODELS_DIR
+if os.path.basename(os.getcwd()) != "src":
+    models_dir = models_dir[len("../"):]
 
-# lora; in paper they recommended 64, 16, 0.1; Sebastian Raschka benchmarks show maybe 256, 128, 0.05 is better
-lora_rank = 128
-lora_alpha = 64
-lora_dropout = 0.1
+def get_args():
+    parser = argparse.ArgumentParser(prog="finetune", description="Finetune a language model on a dataset of conversations.")
+    boolean = lambda x: bool(strtobool(str(x)))
+    ######
+    parser.add_argument("--dataset_name", type=str, default=DS_UPLOAD_PATH)
+    parser.add_argument("--input_model_name", type=str, default="TinyLlama/TinyLlama-1.1B-Chat-v1.0")
+    parser.add_argument("--output_model_name", type=str, default="rag-tge_TinyLlama_LoRA")
+    parser.add_argument("--resume_from_checkpoint", type=boolean, default=False)
+    parser.add_argument("--use_unsloth", type=boolean, default=False)
+    ######
+    parser.add_argument("--load_in_4bit", type=boolean, default=False, help="QLoRA")
+    parser.add_argument("--max_seq_length", type=int, default=4096)
+    parser.add_argument("--use_flash_attention_2", type=boolean, default=True)
+    ######
+    # lora; in paper they recommended 64, 16, 0.1; Sebastian Raschka benchmarks show maybe 256, 128, 0.05 is better
+    parser.add_argument("--lora_rank", type=int, default=128)
+    parser.add_argument("--lora_alpha", type=int, default=64)
+    parser.add_argument("--lora_dropout", type=float, default=0.1)
+    ######
+    parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--batch_size", type=int, default=2, help="most performant when kept to multiples of 8")
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=4)
+    parser.add_argument("--warmup_ratio", type=float, default=0.05)
+    parser.add_argument("--weight_decay", type=float, default=0.01)
+    parser.add_argument("--max_grad_norm", type=float, default=0.3, help="default is 1.0")
+    parser.add_argument("--gradient_checkpointing", type=boolean, default=True)
+    parser.add_argument("--learning_rate", type=float, default=2e-4)
+    parser.add_argument("--lr_scheduler_type", type=str, default="linear")
+    parser.add_argument("--optim", type=str, default="paged_adamw_32bit")
+    parser.add_argument("--neftune_noise_alpha", type=float, default=5, help="default is None")
+    parser.add_argument("--bf16", type=boolean, default=True)
+    parser.add_argument("--tf32", type=boolean, default=True)
+    parser.add_argument("--dataset_num_proc", type=int, default=8)
+    parser.add_argument("--dataloader_num_workers", type=int, default=4)
+    ######
+    parser.add_argument("--save_steps_denom", type=int, default=4, help="will set save_steps to 1/n")
+    parser.add_argument("--eval_steps_denom", type=int, default=32, help="will set eval_steps to 1/n")
+    parser.add_argument("--push_to_hub", type=boolean, default=True)
+    parser.add_argument("--save_total_limit", type=int, default=1)
+    parser.add_argument("--limit_train", type=int, default=None)
+    parser.add_argument("--limit_test", type=int, default=None)
+    ######
+    parser.add_argument("--seed", type=int, default=50)
+    ######
+    args = parser.parse_args()
+    print(">>> args:\n", "\n".join([f"{k}: {v}" for k, v in vars(args).items()]), "\n<<<")
+    return args
 
-# dataset
-# dataloader_num_workers = 4
-limit_train = None
-limit_test = None
 
-# training
-batch_size = 2  # most performant when kept to multiples of 8
-gradient_accumulation_steps = 4
-epochs = 2
-warmup_ratio = 0.05
-weight_decay = 0.01
-max_grad_norm = 0.3  # default is 1.0
-gradient_checkpointing = True
-learning_rate = 2e-4
-lr_scheduler_type = "linear"
-optim = "paged_adamw_32bit"  # ['adamw_hf', 'adamw_torch', 'adamw_torch_fused', 'adamw_torch_xla', 'adamw_torch_npu_fused', 'adamw_apex_fused', 'adafactor', 'adamw_anyprecision', 'sgd', 'adagrad', 'adamw_bnb_8bit', 'adamw_8bit', 'lion_8bit', 'lion_32bit', 'paged_adamw_32bit', 'paged_adamw_8bit', 'paged_lion_32bit', 'paged_lion_8bit', 'rmsprop', 'rmsprop_bnb', 'rmsprop_bnb_8bit', 'rmsprop_bnb_32bit']
-neftune_noise_alpha = 5  # default is None
-mixed_precision_training = True
-tf32 = True
-
-# checkpointing
-save_steps = 1 / 8
-eval_steps = 1 / 8
-push_to_hub = True
-save_total_limit = 1
-
-# other
-seed = 50
-
-##########
-
-os.environ["WANDB_PROJECT"] = output_model_name
-# os.makedirs(os.environ["WANDB_DIR"], exist_ok=True)
-os.makedirs(".wandb", exist_ok=True)
-
-##########
-
-print("bf16:", torch.cuda.is_bf16_supported())
-print("cuda:", torch.version.cuda)
-
-##########
-
-if use_unsloth:
-    #############
+def get_model_unsloth(args):
     from unsloth import FastLanguageModel
 
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=input_model_name,
-        max_seq_length=max_seq_length,
+        model_name=args.input_model_name,
+        max_seq_length=args.max_seq_length,
         dtype=None,  # autodetect
-        load_in_4bit=load_in_4bit,
+        load_in_4bit=args.load_in_4bit,
         use_cache=False,
     )
 
     model = FastLanguageModel.get_peft_model(
         model,
-        r=lora_rank,
-        lora_alpha=lora_alpha,
-        lora_dropout=lora_dropout,
+        r=args.lora_rank,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
         bias="none",
-        max_seq_length=max_seq_length,
-        use_gradient_checkpointing=gradient_checkpointing,
-        random_state=seed,
+        max_seq_length=args.max_seq_length,
+        use_gradient_checkpointing=args.gradient_checkpointing,
+        random_state=args.seed,
         modules_to_save=["lm_head", "embed_tokens"],  # tokenizer changes
     )
 
     peft_config = None
-#############
-else:
-    #############
+
+    return model, tokenizer, peft_config
+
+
+def get_model_transformers(args):
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     from peft import LoraConfig
 
     quantization_config = (
         BitsAndBytesConfig(
-            load_in_4bit=load_in_4bit,
+            load_in_4bit=args.load_in_4bit,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.bfloat16,
             bnb_4bit_use_double_quant=False,
         )
-        if load_in_4bit
+        if args.load_in_4bit
         else None
     )
 
     model = AutoModelForCausalLM.from_pretrained(
-        input_model_name,
+        args.input_model_name,
         device_map={"": 0},  # one gpu for now
-        attn_implementation="flash_attention_2" if use_flash_attention_2 else None,
+        attn_implementation="flash_attention_2" if args.use_flash_attention_2 else None,
         quantization_config=quantization_config,
         torch_dtype=torch.bfloat16,
         use_cache=False,
     )
-    tokenizer = AutoTokenizer.from_pretrained(input_model_name, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(args.input_model_name, use_fast=False)
 
     peft_config = LoraConfig(
-        r=lora_rank,
-        lora_alpha=lora_alpha,
-        lora_dropout=lora_dropout,
+        r=args.lora_rank,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
         bias="none",
         target_modules="all-linear",
         task_type="CAUSAL_LM",
         modules_to_save=["lm_head", "embed_tokens"],  # tokenizer changes
     )
-#############
 
-# tokenizer.padding_side = "left" # controversial
-if tokenizer.pad_token == None:
-    print("setting pad token to eos token")
-    tokenizer.pad_token = tokenizer.eos_token
-
-##########
-
-print(f"old bos token: {tokenizer.bos_token}, old eos token: {tokenizer.eos_token}, old pad token: {tokenizer.pad_token}")
-
-model, tokenizer = add_chatml_support(model, tokenizer)
-
-##########
-
-from datasets import load_dataset
-
-dataset = load_dataset(dataset_name)
-print(dataset)
-if limit_train:
-    dataset["train"] = dataset["train"].select(range(limit_train))
-if limit_test:
-    dataset["test"] = dataset["test"].select(range(limit_test))
-print(dataset)
+    return model, tokenizer, peft_config
 
 
-def format_conversation(system_prompt, user_prompt, assistant_prompt):
+def get_model(args):
+    if args.use_unsloth:
+        return get_model_unsloth(args)
+    else:
+        return get_model_transformers(args)
+
+
+def get_dataset(args):
+    dataset = load_dataset(args.dataset_name)
+    print(dataset)
+    if args.limit_train:
+        dataset["train"] = dataset["train"].select(range(args.limit_train))
+    if args.limit_test:
+        dataset["test"] = dataset["test"].select(range(args.limit_test))
+    if args.limit_train or args.limit_test:
+        print("limited dataset:")
+        print(dataset)
+    return dataset
+
+
+def format_conversation(tokenizer, system_prompt, user_prompt, assistant_prompt):
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
         {"role": "assistant", "content": assistant_prompt},
     ]
-    templated = tokenizer.apply_chat_template(messages, tokenize=False).strip()
-    return templated
+    return tokenizer.apply_chat_template(messages, tokenize=False).strip()
 
 
-def format_conversations(rows):
-    return [format_conversation(rows["system_prompt"][i], rows["user_prompt"][i], rows["answer"][i]) for i in range(len(rows["system_prompt"]))]
+def get_formatter(tokenizer):
+    def format_conversations(rows):
+        return [format_conversation(tokenizer, rows["system_prompt"][i], rows["user_prompt"][i], rows["answer"][i]) for i in range(len(rows["system_prompt"]))]
+
+    return format_conversations
 
 
-##########
-
-trainer = SFTTrainer(
-    model=model,
-    tokenizer=tokenizer,
-    max_seq_length=max_seq_length,
-    train_dataset=dataset["train"],
-    eval_dataset=dataset["test"],
-    formatting_func=format_conversations,
-    data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False, pad_to_multiple_of=8),
-    packing=False,
-    dataset_num_proc=min(8, os.cpu_count()),  # fails on some systems
-    dataset_kwargs={
-        # "add_special_tokens": False, # we are adding it manually in the formatting function
-    },
-    peft_config=peft_config,
-    args=TrainingArguments(
-        output_dir=output_model_name,
-        per_device_train_batch_size=batch_size,
-        per_device_eval_batch_size=batch_size,
-        gradient_accumulation_steps=gradient_accumulation_steps,
-        gradient_checkpointing=gradient_checkpointing,
-        group_by_length=True,
-        num_train_epochs=epochs,
-        evaluation_strategy="steps",
-        eval_steps=eval_steps,
-        save_steps=save_steps,
-        save_total_limit=save_total_limit,
-        push_to_hub=push_to_hub,
-        hub_private_repo=True,
-        hub_strategy="checkpoint",
-        report_to="wandb",
-        logging_steps=1,
-        optim=optim,
-        learning_rate=learning_rate,
-        lr_scheduler_type=lr_scheduler_type,
-        warmup_ratio=warmup_ratio,
-        weight_decay=weight_decay,
-        max_grad_norm=max_grad_norm,
-        neftune_noise_alpha=neftune_noise_alpha,
-        bf16=mixed_precision_training,
-        tf32=tf32,
-        seed=seed,
-        # dataloader_num_workers=min(dataloader_num_workers, batch_size, os.cpu_count()),
-        # include_tokens_per_second=True,
-        # torch_compile=True, # crashes with error
-    ),
-)
+def get_trainer(args, model, tokenizer, peft_config, dataset):
+    return SFTTrainer(
+        model=model,
+        tokenizer=tokenizer,
+        max_seq_length=args.max_seq_length,
+        train_dataset=dataset["train"],
+        eval_dataset=dataset["test"],
+        formatting_func=get_formatter(tokenizer),
+        data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False, pad_to_multiple_of=8),
+        packing=False,
+        dataset_num_proc=min(args.dataset_num_proc, os.cpu_count()),  # fails on some systems
+        dataset_kwargs={
+            # "add_special_tokens": False, # we are adding it manually in the formatting function
+        },
+        peft_config=peft_config,
+        args=TrainingArguments(
+            output_dir=f"{models_dir}/{args.output_model_name}",
+            per_device_train_batch_size=args.batch_size,
+            per_device_eval_batch_size=args.batch_size,
+            gradient_accumulation_steps=args.gradient_accumulation_steps,
+            gradient_checkpointing=args.gradient_checkpointing,
+            group_by_length=True,
+            num_train_epochs=args.epochs,
+            evaluation_strategy="steps",
+            eval_steps=1 / args.eval_steps_denom,
+            save_steps=1 / args.save_steps_denom,
+            save_total_limit=args.save_total_limit,
+            push_to_hub=args.push_to_hub,
+            hub_private_repo=True,
+            hub_strategy="checkpoint",
+            report_to="wandb",
+            logging_steps=1,
+            optim=args.optim,
+            learning_rate=args.learning_rate,
+            lr_scheduler_type=args.lr_scheduler_type,
+            warmup_ratio=args.warmup_ratio,
+            weight_decay=args.weight_decay,
+            max_grad_norm=args.max_grad_norm,
+            neftune_noise_alpha=args.neftune_noise_alpha,
+            bf16=args.bf16,
+            tf32=args.tf32,
+            seed=args.seed,
+            dataloader_num_workers=min(args.dataloader_num_workers, args.batch_size, os.cpu_count()),
+            # torch_compile=True, # crashes
+        ),
+    )
 
 
 def print_memory():
@@ -237,12 +233,19 @@ def print_memory():
         print(f"total {all_memory_used:.1f} of {all_memory_total:.1f} GiB of memory reserved")
 
 
-print_memory()
+def train(args, trainer):
+    print_memory()
+    trainer_stats = trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
+    print_memory()
+    train_runtime = timedelta(seconds=trainer_stats.metrics["train_runtime"])
+    print(f"training took {train_runtime}")
 
-trainer_stats = trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
-print_memory()
-train_runtime = timedelta(seconds=trainer_stats.metrics["train_runtime"])
-print(f"training took {train_runtime}")
-
-##########
+if __name__ == "__main__":
+    args = get_args()
+    os.environ["WANDB_PROJECT"] = args.output_model_name
+    model, tokenizer, peft_config = get_model(args)
+    model, tokenizer = add_chatml_support(model, tokenizer)
+    dataset = get_dataset(args)
+    trainer = get_trainer(args, model, tokenizer, peft_config, dataset)
+    train(args, trainer)

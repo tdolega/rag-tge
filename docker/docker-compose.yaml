@@ -1,12 +1,21 @@
 services:
 
-  llamacpp-server:
-    container_name: "llamacpp-server"
+  rag-tge_llm:
+    container_name: "rag-tge_llm"
     image: ghcr.io/ggerganov/llama.cpp:full-cuda
     ports:
       - "${LLAMA_PORT}:${LLAMA_PORT}"
     volumes:
-      - ./api_keys.txt:/api_keys.txt
       - /mnt/data/tdolega/models/:/models/
 
-    command: --server --host 0.0.0.0 --port ${LLAMA_PORT} -m /models/${MODEL_FILE} -cb -np ${NP} -c ${CTX_SIZE} -ngl ${NGL} --api-key-file /api_keys.txt --embedding
+    command: --server --host 0.0.0.0 --port ${LLAMA_PORT} -m /models/${MODEL_FILE} -c ${CTX_SIZE} -ngl 0 --api-key ${LLAMA_KEY} --embedding
+
+  # rag-tge_vectorizer:
+  #   container_name: "rag-tge_vectorizer"
+  #   image: ghcr.io/ggerganov/llama.cpp:full-cuda
+  #   ports:
+  #     - "${LLAMA_PORT}:${LLAMA_PORT}"
+  #   volumes:
+  #     - /mnt/data/tdolega/models/:/models/
+
+  #   command: --server --host 0.0.0.0 --port ${LLAMA_PORT} -m /models/${MODEL_FILE} -c ${CTX_SIZE} -ngl 0 --api-key ${LLAMA_KEY} --embedding

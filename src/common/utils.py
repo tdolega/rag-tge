@@ -82,7 +82,13 @@ def add_chatml_support(model, tokenizer):
     BOS_TOKEN = "<|im_start|>"
     EOS_TOKEN = "<|im_end|>"
 
-    # todo: check if these tokens are already in the tokenizer
+    # todo: maybe check if these tokens are already in the tokenizer
+    print(f"old bos token: {tokenizer.bos_token}, old eos token: {tokenizer.eos_token}, old pad token: {tokenizer.pad_token}")
+
+    # tokenizer.padding_side = "left" # controversial
+    if tokenizer.pad_token == None:
+        print("setting pad token to eos token")
+        tokenizer.pad_token = tokenizer.eos_token
 
     tokenizer.pad_token = PAD_TOKEN
     tokenizer.add_tokens([BOS_TOKEN])

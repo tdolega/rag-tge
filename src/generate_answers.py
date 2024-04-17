@@ -1,7 +1,6 @@
 import argparse
 import json
 from tqdm.auto import tqdm
-import time
 
 from common.llms.llms import get_llm, add_llm_args
 from common.utils import get_start_idx, get_dataset, create_prompt, obj_to_filename
