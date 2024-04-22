@@ -6,12 +6,14 @@ from transformers import TrainingArguments, DataCollatorForLanguageModeling
 from trl import SFTTrainer
 from datetime import timedelta
 from distutils.util import strtobool
+from dotenv import load_dotenv
 
 from common.consts import DS_UPLOAD_PATH, MODELS_DIR
 from common.utils import add_chatml_support
 
 # todo: learn only responses, not prompts (set attention correctly)
 
+load_dotenv()
 WANDB_DIR = ".wandb"
 os.environ["WANDB_DIR"] = WANDB_DIR
 os.makedirs(WANDB_DIR, exist_ok=True)
@@ -80,16 +82,19 @@ def get_model_unsloth(args):
         use_cache=False,
     )
 
+    if args.lora_dropout != 0:
+        print("WARNING: LoRA dropout is not supported in unsloth, setting it to 0")
+    lora_dropout = 0
     model = FastLanguageModel.get_peft_model(
         model,
         r=args.lora_rank,
         lora_alpha=args.lora_alpha,
-        lora_dropout=args.lora_dropout,
+        lora_dropout=lora_dropout,
         bias="none",
         max_seq_length=args.max_seq_length,
-        use_gradient_checkpointing=args.gradient_checkpointing,
+        use_gradient_checkpointing="unsloth" if args.gradient_checkpointing else False,
         random_state=args.seed,
-        modules_to_save=["lm_head", "embed_tokens"],  # tokenizer changes
+        modules_to_save=["lm_head", "embed_tokens"] if not tokenizer.chat_template else None,
     )
 
     peft_config = None
@@ -129,7 +134,7 @@ def get_model_transformers(args):
         bias="none",
         target_modules="all-linear",
         task_type="CAUSAL_LM",
-        modules_to_save=["lm_head", "embed_tokens"],  # tokenizer changes
+        modules_to_save=["lm_head", "embed_tokens"] if not tokenizer.chat_template else None,
     )
 
     return model, tokenizer, peft_config

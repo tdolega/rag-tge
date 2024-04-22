@@ -2,9 +2,12 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel, PeftConfig
 import torch
 import argparse
+from distutils.util import strtobool
+from dotenv import load_dotenv
 
 from common.utils import add_chatml_support
 
+load_dotenv()
 
 def merge(adapter_path, push_to_hub):
     if adapter_path.endswith("/"):
@@ -33,7 +36,8 @@ def merge(adapter_path, push_to_hub):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    boolean = lambda x: bool(strtobool(str(x)))
     parser.add_argument("adapter_path", type=str)
-    parser.add_argument("--push_to_hub", type=bool, default=False)
+    parser.add_argument("--push_to_hub", type=boolean, default=False)
     args = parser.parse_args()
     merge(**vars(args))
