@@ -8,9 +8,9 @@ notebook
 openai
 peft
 protobuf
+python-dotenv
 scikit-learn
 sentencepiece
-torch
 torch
 tqdm
 transformers

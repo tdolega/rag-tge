@@ -20,7 +20,7 @@ docker run \
     --rm \
     -v $input_path:/input \
     ghcr.io/ggerganov/llama.cpp:full-cuda \
-    -c /input
+    -c /input --vocab-type "spm,hfft,bpe"
 
 # quantize the model
 docker run \

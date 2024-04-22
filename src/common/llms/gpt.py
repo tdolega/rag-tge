@@ -1,4 +1,6 @@
 from openai import OpenAI
+from functools import cache
+
 from common.llms.base import LLM_BASE
 
 
@@ -36,6 +38,7 @@ Answer:
     def generate(self, user_prompt: str, system_prompt: str):
         return self.generate_chat(user_prompt, system_prompt)
 
+    @cache
     def embed(self, text):
         response = self.client.embeddings.create(
             model=self.model_name,

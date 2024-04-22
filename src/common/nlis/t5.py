@@ -1,6 +1,7 @@
 from common.nlis.base import NLI_BASE
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 import torch
+from functools import cache
 
 
 class NLI_T5(NLI_BASE):
@@ -9,6 +10,7 @@ class NLI_T5(NLI_BASE):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False, legacy=True)
         self.model_name = model_name.split("/")[-1]
 
+    @cache
     def evaluate(self, passage: str, claim: str) -> int:
         prompt = f"premise: {passage} hypothesis: {claim}"
         input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids.to(self.model.device)
