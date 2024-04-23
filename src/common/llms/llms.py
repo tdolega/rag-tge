@@ -1,7 +1,7 @@
 from common.llms.llamacpp import LLM_LLAMACPP
 from common.llms.gpt import LLM_GPT
 from common.llms.hf import LLM_HF
-from common.llms.llmcloud import LLM_LLMCLOUD
+from common.llms.awanllm import LLM_AWANLLM
 from common.llms.hfspaces import LLM_HFSPACES
 
 
@@ -13,8 +13,8 @@ def get_llm(args):
         model = LLM_LLAMACPP()
     elif "gpt" in model_name:
         model = LLM_GPT(model_name)
-    elif model_name.startswith("llmcloud_"):
-        model = LLM_LLMCLOUD(model_name)
+    elif model_name.startswith("awanllm_"):
+        model = LLM_AWANLLM(model_name)
     elif model_name.startswith("hfspaces_"):
         model = LLM_HFSPACES(model_name)
     elif "/" in model_name:

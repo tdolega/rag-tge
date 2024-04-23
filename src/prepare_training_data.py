@@ -2,6 +2,8 @@ import os
 import json
 import datasets
 import pandas as pd
+import argparse
+from distutils.util import strtobool
 
 from common.consts import (
     ANSWERS_DIR,
@@ -117,8 +119,14 @@ def create_dataset(data, test_size=80):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    boolean = lambda x: bool(strtobool(str(x)))
+    parser.add_argument("--push_to_hub", type=boolean, default=False)
+    args = parser.parse_args()
+
     training_answers = get_training_answers()
     training_data = append_questions(training_answers)
     training_ds = create_dataset(training_data)
     training_ds.save_to_disk(DS_SAVE_PATH)
-    training_ds.push_to_hub(DS_UPLOAD_PATH)
+    if args.push_to_hub:
+        training_ds.push_to_hub(DS_UPLOAD_PATH)

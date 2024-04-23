@@ -18,7 +18,7 @@ def get_start_idx(filename):
 
 
 def get_dataset(limit=None, split="train", level="easy"):
-    dataset = load_dataset("hotpot_qa", "distractor", split=split)
+    dataset = load_dataset("hotpot_qa", "distractor", split=split, trust_remote_code=True)
     if level is not None:
         dataset = dataset.filter(lambda row: row["level"] == level, num_proc=os.cpu_count())
     dataset = dataset.shuffle(seed=102)
@@ -105,3 +105,12 @@ def add_chatml_support(model, tokenizer):
     model.config.eos_token_id = tokenizer.eos_token_id
 
     return model, tokenizer
+
+def get_max_memory(margin_percent=0.2):
+    print("WARNING: using hardcoded max memory mapping")
+    return None
+    return {
+        "cpu": "100GiB",
+        0: "10GiB",
+    }
+    # todo: auto calculate

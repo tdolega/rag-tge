@@ -146,7 +146,7 @@ def evaluate_quality(dataset_row, answer, nli, nlg):
 
 
 def evaluate_answer(dataset_row, answer, nli, nlg):
-    answer = answer[:2048]  # * truncate the answer to speed up the evaluation, if answer is larger that this, it's never valid anyway
+    answer = answer[:1024]  # * truncate the answer to speed up the evaluation, if answer is larger that this, it's never valid anyway
     return {
         "citations": evaluate_citations(dataset_row, answer, nli, nlg),
         "correctness": evaluate_correctness(dataset_row, answer, nli, nlg),

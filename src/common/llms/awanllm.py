@@ -8,12 +8,12 @@ from common.llms.gpt import LLM_GPT
 load_dotenv()
 
 
-class LLM_LLMCLOUD(LLM_GPT):
+class LLM_AWANLLM(LLM_GPT):
     def __init__(self, model_name):
-        self.model_name = model_name[len("llmcloud_") :]
+        self.model_name = model_name[len("awanllm_") :]
         self.client = OpenAI(
             base_url="https://api.llmcloud.app/v1",
-            api_key=os.getenv("LLMCLOUD_KEY"),
+            api_key=os.getenv("AWANLLM_KEY"),
         )
         self.queries_ts = []
         self.queries_per_interval = 10
@@ -31,5 +31,5 @@ class LLM_LLMCLOUD(LLM_GPT):
             try:
                 return super().generate_chat(user_prompt, system_prompt)
             except Exception as e:
-                print(f"error {i} in LLMCloud: {e}")
+                print(f"error {i} in AWANLLM: {e}")
                 time.sleep(20)

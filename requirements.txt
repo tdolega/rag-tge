@@ -2,6 +2,7 @@ accelerate
 bitsandbytes
 datasets
 flash-attn # --no-build-isolation
+gradio-client
 ninja
 nltk
 notebook
@@ -16,3 +17,4 @@ tqdm
 transformers
 trl
 wandb
+llama-cpp-python[server]==0.2.55
