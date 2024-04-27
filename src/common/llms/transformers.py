@@ -22,7 +22,7 @@ class LLM_TRANSFORMERS(LLM_BASE):
         )
 
         self.terminators = [self.tokenizer.eos_token_id]
-        if "Llama-3" in model_name:
+        if "llama-3" in model_name.lower():
             self.terminators.append(self.tokenizer.convert_tokens_to_ids("<|eot_id|>"))
 
     def generate(self, user_prompt: str, system_prompt: str = None):
@@ -40,5 +40,3 @@ class LLM_TRANSFORMERS(LLM_BASE):
         response = outputs[0][inputs.shape[-1] :]
         response = self.tokenizer.decode(response, skip_special_tokens=True)
         return None, response.strip()
-
-    # todo: implement embed()

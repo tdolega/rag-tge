@@ -27,9 +27,8 @@ def get_dataset(limit=None, split="train", level="easy", seed_string="none"):
     dataset = dataset.shuffle(seed=102)
     if limit is not None:
         dataset = dataset.select(range(limit))
-
-    if limit <= EVAL_SIZE:
-        return dataset
+        if limit <= EVAL_SIZE:
+            return dataset
 
     eval_split = dataset.select(range(EVAL_SIZE))
     train_split = dataset.select(range(EVAL_SIZE, len(dataset)))
@@ -55,7 +54,8 @@ def clean_sentence(sentence):
 
 
 def get_refs_from_sentence(sentence):
-    return [int(citation[1:-1]) - 1 for citation in re.findall(r"\[\d+\]", sentence)]  # 0-indexed instead of 1-indexed like in text
+    citations = [int(citation[1:-1]) - 1 for citation in re.findall(r"\[\d+\]", sentence)]  # 0-indexed instead of 1-indexed like in text
+    return list(set(citations))
 
 
 def obj_to_filename(obj):
@@ -104,7 +104,6 @@ def add_chatml_support(model, tokenizer):
     BOS_TOKEN = "<|im_start|>"
     EOS_TOKEN = "<|im_end|>"
 
-    # todo: maybe check if these tokens are already in the tokenizer
     print(f"old bos token: {tokenizer.bos_token}, old eos token: {tokenizer.eos_token}, old pad token: {tokenizer.pad_token}")
 
     # tokenizer.pad_token = PAD_TOKEN
@@ -127,4 +126,3 @@ def get_max_memory(margin_percent=0.2):
         "cpu": "100GiB",
         0: "10GiB",
     }
-    # todo: auto calculate

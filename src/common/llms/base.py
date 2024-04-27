@@ -15,8 +15,11 @@ class LLM_BASE:
             return [{"role": "user", "content": user_prompt}]
 
         LLMS_WITHOUT_SYSTEM_PROMPT = [
-            "mistralai/Mistral-7B-Instruct-v0.2",
             "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "mistralai/Mistral-7B-Instruct-v0.1",
+            "mistralai/Mistral-7B-Instruct-v0.2",
+            "google/gemma-1.1-2b-it",
+            "google/gemma-1.1-7b-it",
         ]
 
         if self.model_name in LLMS_WITHOUT_SYSTEM_PROMPT:

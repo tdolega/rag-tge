@@ -9,8 +9,8 @@ fi
 
 while true; do
     $cmd && break
-    echo "Command failed. Retrying in 1 minute..."
+    echo "> command failed... retrying in 1 minute"
     sleep 60
 done
 
-echo "Command succeeded"
+echo "> command succeeded"

@@ -15,7 +15,7 @@ class LLM_GPT(LLM_BASE):
             messages=self.get_chat(user_prompt, system_prompt),
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
-            seed=random.randint(21, 37),
+            seed=random.randint(1, 23456789),
         )
         try:
             return response, response.choices[0].message.content.strip()
