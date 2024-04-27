@@ -2,7 +2,6 @@ import argparse
 import json
 from tqdm.auto import tqdm
 import nltk
-from sklearn.metrics.pairwise import cosine_similarity
 import os
 
 from common.utils import (
@@ -17,12 +16,14 @@ from common.utils import (
 )
 from common.nlis.nlis import get_nli, add_nli_args
 from common.llms.llms import get_llm, add_llm_args
+from common.sims.sims import get_sim, add_sim_args
 
+nltk.download("punkt", quiet=True)
 
 dataset_by_id = {item["id"]: item for item in get_dataset()}
 
 
-def evaluate_citations(dataset_row, answer, nli, nlg):
+def evaluate_citations(dataset_row, answer, nli):
     passages = [merge_sentences(passage_sentences) for passage_sentences in dataset_row["context"]["sentences"]]
 
     sentences = nltk.sent_tokenize(answer, language="english")
@@ -99,7 +100,7 @@ def evaluate_citations(dataset_row, answer, nli, nlg):
     }
 
 
-def evaluate_correctness(dataset_row, answer, nli, nlg):
+def evaluate_correctness(dataset_row, answer, nli):
     # * calculate word overlap
     clean_answer = clean_sentence(answer)
     gt_answer = dataset_row["answer"]
@@ -110,7 +111,7 @@ def evaluate_correctness(dataset_row, answer, nli, nlg):
 
     # * calculate answer entailment
     question = dataset_row["question"]
-    answer_entail = nli.evaluate(answer, f"{question} {gt_answer}")
+    answer_entail = nli.evaluate(f"{question} {answer}", f"{question} {gt_answer}")
 
     # * calculate citations overlap with ground truth
     refs = set(get_refs_from_sentence(answer))
@@ -119,47 +120,48 @@ def evaluate_correctness(dataset_row, answer, nli, nlg):
         citation_idx = dataset_row["context"]["title"].index(supporting_fact_title)
         gt_refs.add(citation_idx)
     citations_recall = len(refs.intersection(gt_refs)) / len(gt_refs)
+    citations_precision = len(refs.intersection(gt_refs)) / len(refs) if len(refs) > 0 else 0
 
     return {
         "answer_overlap": answer_overlap,
         "answer_entail": answer_entail,
         "citations_recall": citations_recall,
+        "citations_precision": citations_precision,
     }
 
 
-def evaluate_quality(dataset_row, answer, nli, nlg):
-    _, question_emb = nlg.embed(dataset_row["question"])
-    _, new_question = nlg.generate(
+def evaluate_quality(dataset_row, answer, llm, sim):
+    _, new_question = llm.generate(
         system_prompt="Generate a question for the given answer.",
         user_prompt=f"answer: {answer}",
     )
     if new_question.lower().startswith("question: "):
-        new_question = new_question[10:]
-    if "\n" in new_question:
-        new_question = new_question.split("\n")[0]
-    _, new_question_emb = nlg.embed(new_question)
-    answer_relevance = cosine_similarity([question_emb], [new_question_emb])[0][0]
+        new_question = new_question[len("question: ") :]
+    new_question = new_question.split("\n")[0]
+    _, answer_relevance = sim.calculate(dataset_row["question"], new_question)
 
     return {
         "answer_relevance": answer_relevance,
+        "new_question": new_question,
     }
 
 
-def evaluate_answer(dataset_row, answer, nli, nlg):
+def evaluate_answer(dataset_row, answer, nli, llm, sim):
     answer = answer[:1024]  # * truncate the answer to speed up the evaluation, if answer is larger that this, it's never valid anyway
     return {
-        "citations": evaluate_citations(dataset_row, answer, nli, nlg),
-        "correctness": evaluate_correctness(dataset_row, answer, nli, nlg),
-        "quality": evaluate_quality(dataset_row, answer, nli, nlg),
+        "citations": evaluate_citations(dataset_row, answer, nli),
+        "correctness": evaluate_correctness(dataset_row, answer, nli),
+        "quality": evaluate_quality(dataset_row, answer, llm, sim),
     }
 
 
-def evaluate_answers(input_file, nli, nlg):
+def evaluate_answers(input_file, nli, llm, sim):
     with open(input_file, "r") as handle:
         answers = [json.loads(line) for line in handle]
     params = filename_to_obj(input_file)
-    params["nli"] = nli.model_name
-    params["nlg"] = nlg.model_name
+    params["nli"] = nli.short_model_name
+    params["ellm"] = llm.short_model_name
+    params["sim"] = sim.short_model_name
     output_file = obj_to_filename(params)
     output_file = f"../data/results/{output_file}"
     start_idx = get_start_idx(output_file)
@@ -170,7 +172,7 @@ def evaluate_answers(input_file, nli, nlg):
         question_id, answers = answers_row["question_id"], answers_row["answers"]
         dataset_row = dataset_by_id[question_id]
 
-        evaluations = [evaluate_answer(dataset_row, answer, nli, nlg) for answer in answers]
+        evaluations = [evaluate_answer(dataset_row, answer, nli, llm, sim) for answer in answers]
 
         output_json = {"question_id": question_id, "evaluations": evaluations}
         output_handle.write(json.dumps(output_json) + "\n")
@@ -190,14 +192,16 @@ if __name__ == "__main__":
     )
     add_nli_args(parser)
     add_llm_args(parser)
+    add_sim_args(parser)
     args = parser.parse_args()
     print("args:", args)
 
     nli = get_nli(args)
-    nlg = get_llm(args)
+    llm = get_llm(args)
+    sim = get_sim(args)
 
     if args.answers:
-        evaluate_answers(args.answers, nli, nlg)
+        evaluate_answers(args.answers, nli, llm, sim)
     else:
         answers_path = "../data/answers"
         for filename in os.listdir(answers_path):
@@ -206,4 +210,4 @@ if __name__ == "__main__":
                 continue
             path = os.path.join(answers_path, filename)
             print(f"evaluating {path}")
-            evaluate_answers(path, nli, nlg)
+            evaluate_answers(path, nli, llm, sim)

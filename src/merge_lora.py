@@ -9,6 +9,7 @@ from common.utils import add_chatml_support
 
 load_dotenv()
 
+
 def merge(adapter_path, push_to_hub):
     if adapter_path.endswith("/"):
         adapter_path = adapter_path[:-1]

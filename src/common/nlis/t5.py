@@ -7,18 +7,41 @@ from common.utils import get_max_memory
 
 
 class NLI_T5(NLI_BASE):
-    def __init__(self, model_name="google/t5_xxl_true_nli_mixture", device="auto"):
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name, device_map=device, torch_dtype=torch.bfloat16, max_memory=get_max_memory())
+    def __init__(self, model_name, device="auto"):
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(
+            model_name,
+            torch_dtype=torch.bfloat16,
+            device_map=device,
+            max_memory=get_max_memory(),
+        )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False, legacy=True)
-        self.model_name = model_name.split("/")[-1]
 
     @cache
     def evaluate(self, passage: str, claim: str) -> int:
+        MAX_LENGTH = 512
+        SAFE_BUFFER = 8
+        passage_tokens = self.tokenizer(passage, return_tensors="pt").input_ids
+        claim_tokens = self.tokenizer(claim, return_tensors="pt").input_ids
+        passage_n_tokens = passage_tokens.size(1)
+        claim_n_tokens = claim_tokens.size(1)
+        if passage_n_tokens + claim_n_tokens + SAFE_BUFFER > MAX_LENGTH:
+            if claim_n_tokens > MAX_LENGTH // 2:
+                claim_tokens = claim_tokens[:, : MAX_LENGTH // 2]
+                claim = self.tokenizer.decode(claim_tokens[0], skip_special_tokens=True)
+                claim_n_tokens = claim_tokens.size(1)
+            if passage_n_tokens + claim_n_tokens + SAFE_BUFFER > MAX_LENGTH:
+                passage_tokens = passage_tokens[:, : MAX_LENGTH - claim_n_tokens - SAFE_BUFFER]
+                passage = self.tokenizer.decode(passage_tokens[0], skip_special_tokens=True)
+                passage_n_tokens = passage_tokens.size(1)
+
         prompt = f"premise: {passage} hypothesis: {claim}"
-        input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids.to(self.model.device)
+        input_ids = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=MAX_LENGTH).input_ids
+        input_ids = input_ids.to(self.model.device)
+
         with torch.inference_mode():
-            output = self.model.generate(input_ids, max_new_tokens=20)
+            output = self.model.generate(input_ids, max_new_tokens=10)
         result = self.tokenizer.decode(output[0], skip_special_tokens=True)
+
         if len(result) > 1:
             result = result[0]
         if result not in ["0", "1"]:

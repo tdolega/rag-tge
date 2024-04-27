@@ -9,8 +9,7 @@ load_dotenv()
 
 
 class LLM_AWANLLM(LLM_GPT):
-    def __init__(self, model_name):
-        self.model_name = model_name[len("awanllm_") :]
+    def __init__(self):
         self.client = OpenAI(
             base_url="https://api.llmcloud.app/v1",
             api_key=os.getenv("AWANLLM_KEY"),
@@ -19,7 +18,7 @@ class LLM_AWANLLM(LLM_GPT):
         self.queries_per_interval = 10
         self.interval_seconds = 70
 
-    def generate_chat(self, user_prompt: str, system_prompt: str):
+    def generate_chat(self, *args, **kwargs):
         if len(self.queries_ts) >= self.queries_per_interval:
             if time.time() - self.queries_ts[0] < self.interval_seconds:
                 time.sleep(self.interval_seconds - (time.time() - self.queries_ts[0]))
@@ -29,7 +28,7 @@ class LLM_AWANLLM(LLM_GPT):
 
         for i in range(4):
             try:
-                return super().generate_chat(user_prompt, system_prompt)
+                return super().generate_chat(*args, **kwargs)
             except Exception as e:
                 print(f"error {i} in AWANLLM: {e}")
                 time.sleep(20)

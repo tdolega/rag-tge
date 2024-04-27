@@ -6,9 +6,7 @@ from common.llms.base import LLM_BASE
 # ? support for random HuggingFace spaces models, not standard Pro spaces
 class LLM_HFSPACES(LLM_BASE):
     def __init__(self, model_name):
-        model_name = model_name[len("hfspaces_") :]
         self.client = Client(model_name)
-        self.model_name = model_name.split("/")[1]
 
     ## Qwen
     def generate(self, user_prompt: str, system_prompt: str):

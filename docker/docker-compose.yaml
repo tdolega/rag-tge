@@ -9,15 +9,3 @@ services:
       - .:/models/
 
     command: --server --host 0.0.0.0 --port ${LLAMA_PORT} -m /models/${MODEL_FILE} -c ${CTX_SIZE} -ngl 0 --api-key ${LLAMA_KEY} --embedding
-
-  # rag-tge_vectorizer:
-  #   container_name: "rag-tge_vectorizer"
-  #   image: ghcr.io/ggerganov/llama.cpp:full-cuda
-  #   ports:
-  #     - "${LLAMA_PORT}:${LLAMA_PORT}"
-  #   volumes:
-  #     - /mnt/data/tdolega/models/:/models/
-
-  #   command: --server --host 0.0.0.0 --port ${LLAMA_PORT} -m /models/${MODEL_FILE} -c ${CTX_SIZE} -ngl 0 --api-key ${LLAMA_KEY} --embedding
-
-# source .env && python3 -m llama_cpp.server --port ${LLAMA_PORT} --model ./${MODEL_FILE} --n_ctx ${CTX_SIZE} --n_gpu_layers 0 --embedding TRUE

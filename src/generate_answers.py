@@ -9,12 +9,21 @@ from common.utils import get_start_idx, get_dataset, create_prompt, obj_to_filen
 load_dotenv()
 
 
+def fix_answer(answer: str):
+    answer = answer.split("\n\n")[0]
+    if answer.endswith("user"):
+        answer = answer[: answer.rfind("user")]
+    if answer.endswith("assistant"):
+        answer = answer[: answer.rfind("assistant")]
+    return answer
+
+
 def generate_answers(llm, prompt_id, n_samples, dataset_limit):
-    dataset = get_dataset(dataset_limit)
+    dataset = get_dataset(dataset_limit, seed_string=llm.short_model_name)
 
     output_file = obj_to_filename(
         {
-            "llm": llm.model_name,
+            "llm": llm.short_model_name,
             "prompt_id": prompt_id,
             "temperature": llm.temperature,
         }
@@ -30,6 +39,7 @@ def generate_answers(llm, prompt_id, n_samples, dataset_limit):
         answers = []
         for _ in range(n_samples):
             _, answer = llm.generate(*prompts)
+            answer = fix_answer(answer)
             answers.append(answer)
         output_json = {"question_id": row["id"], "answers": answers}
         output_handle.write(json.dumps(output_json) + "\n")

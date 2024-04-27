@@ -94,11 +94,10 @@ def get_training_answers():
 
 
 def append_questions(training_answers):
-    dataset = get_dataset()
-    dataset_idx_from_id = {item["id"]: idx for idx, item in enumerate(dataset)}
+    dataset_from_id = {item["id"]: item for item in get_dataset()}
     training_data = []
     for question_id, answer in training_answers:
-        dataset_row = dataset[dataset_idx_from_id[question_id]]
+        dataset_row = dataset_from_id[question_id]
         user_prompt, system_prompt = create_prompt(dataset_row, BEST_PROMPT_ID)
         training_data.append(
             {

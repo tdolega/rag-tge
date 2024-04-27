@@ -20,7 +20,8 @@ os.makedirs(WANDB_DIR, exist_ok=True)
 
 models_dir = MODELS_DIR
 if os.path.basename(os.getcwd()) != "src":
-    models_dir = models_dir[len("../"):]
+    models_dir = models_dir[len("../") :]
+
 
 def get_args():
     parser = argparse.ArgumentParser(prog="finetune", description="Finetune a language model on a dataset of conversations.")

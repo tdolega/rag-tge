@@ -1,8 +1,11 @@
 import os
 import re
-from datasets import load_dataset
+from datasets import load_dataset, concatenate_datasets
+import random
+import hashlib
 
 from common.prompts import PROMPTS
+from common.consts import EVAL_SIZE
 
 
 def get_start_idx(filename):
@@ -17,14 +20,24 @@ def get_start_idx(filename):
     return start_idx
 
 
-def get_dataset(limit=None, split="train", level="easy"):
+def get_dataset(limit=None, split="train", level="easy", seed_string="none"):
     dataset = load_dataset("hotpot_qa", "distractor", split=split, trust_remote_code=True)
     if level is not None:
         dataset = dataset.filter(lambda row: row["level"] == level, num_proc=os.cpu_count())
     dataset = dataset.shuffle(seed=102)
     if limit is not None:
         dataset = dataset.select(range(limit))
-    return dataset
+
+    if limit <= EVAL_SIZE:
+        return dataset
+
+    eval_split = dataset.select(range(EVAL_SIZE))
+    train_split = dataset.select(range(EVAL_SIZE, len(dataset)))
+    # generate different train data with each model
+    int_seed = int(hashlib.md5(seed_string.encode()).hexdigest(), 16) % 2**32
+    train_split = train_split.shuffle(seed=int_seed)
+    merged_dataset = concatenate_datasets([eval_split, train_split])
+    return merged_dataset
 
 
 def remove_citations(sentence):
@@ -106,9 +119,10 @@ def add_chatml_support(model, tokenizer):
 
     return model, tokenizer
 
+
 def get_max_memory(margin_percent=0.2):
-    print("WARNING: using hardcoded max memory mapping")
     return None
+    print("WARNING: using hardcoded max memory mapping")
     return {
         "cpu": "100GiB",
         0: "10GiB",
