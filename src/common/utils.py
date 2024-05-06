@@ -71,8 +71,11 @@ def filename_to_obj(filename):
 # remove column from dataframe that is used as index
 def remove_index(df, column_name):
     keep_indexes = list(df.index.names)
-    keep_indexes.remove(column_name)
-    return df.reset_index().set_index(keep_indexes)
+    if column_name in keep_indexes:
+        keep_indexes.remove(column_name)
+        return df.reset_index().set_index(keep_indexes)
+    # quiet fail
+    return df
 
 
 def is_object_subset(subset, superset):
