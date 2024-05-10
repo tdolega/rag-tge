@@ -5,7 +5,7 @@ import argparse
 from distutils.util import strtobool
 from dotenv import load_dotenv
 
-from common.utils import add_chatml_support
+from common.utils import ensure_chat_template
 
 load_dotenv()
 
@@ -24,7 +24,7 @@ def merge(adapter_path, push_to_hub):
     ).eval()
     tokenizer = AutoTokenizer.from_pretrained(adapter_path)
 
-    model, tokenizer = add_chatml_support(model, tokenizer)
+    model, tokenizer = ensure_chat_template(model, tokenizer)
 
     model = PeftModel.from_pretrained(model, adapter_path)
     model = model.merge_and_unload()

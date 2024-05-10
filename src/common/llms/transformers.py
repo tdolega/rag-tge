@@ -2,7 +2,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
 from common.llms.base import LLM_BASE
-from common.utils import get_max_memory
+from common.utils import get_max_memory, ensure_chat_template
 
 
 class LLM_TRANSFORMERS(LLM_BASE):
@@ -16,10 +16,14 @@ class LLM_TRANSFORMERS(LLM_BASE):
             torch_dtype=torch.bfloat16,
             device_map=device,
             max_memory=get_max_memory(),
-            # attn_implementation="flash_attention_2",
+            attn_implementation="flash_attention_2",
             load_in_4bit=(quantize == 4),
             load_in_8bit=(quantize == 8),
         )
+
+        if "rag-tge" in model_name:
+            print("ensuring chat template")
+            self.model, self.tokenizer = ensure_chat_template(self.model, self.tokenizer)
 
         self.terminators = [self.tokenizer.eos_token_id]
         if "llama-3" in model_name.lower():

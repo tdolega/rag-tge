@@ -15,7 +15,7 @@ class LLM_GPT(LLM_BASE):
             messages=self.get_chat(user_prompt, system_prompt),
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
-            seed=random.randint(1, 23456789),
+            seed=random.randint(0, 2**31 - 1),  # some providers caches responses, so we need to randomize the seed
         )
         try:
             return response, response.choices[0].message.content.strip()

@@ -22,7 +22,7 @@ def get_llm(args):
         model = LLM_HFSPACES(model_name)
     elif model_name.startswith("transformers_"):
         model_name = model_name[len("transformers_") :]
-        model = LLM_TRANSFORMERS(model_name)
+        model = LLM_TRANSFORMERS(model_name, device=args.llm_device)
     elif model_name.startswith("hfia_"):
         model_name = model_name[len("hfia_") :]
         model = LLM_HFIA(model_name)
@@ -54,4 +54,10 @@ def add_llm_args(parser):
         type=float,
         default=0.1,
         help="temperature for sampling",
+    )
+    parser.add_argument(
+        "--llm_device",
+        type=str,
+        default="cuda",
+        help="[only for 'transformers' models] device to run LLM model on, for example: 'auto', 'cuda', 'cpu'",
     )

@@ -14,9 +14,9 @@ from common.utils import (
     filename_to_obj,
     obj_to_filename,
 )
-from common.nlis.nlis import get_nli, add_nli_args
-from common.llms.llms import get_llm, add_llm_args
-from common.sims.sims import get_sim, add_sim_args
+from common.nlis import get_nli, add_nli_args
+from common.llms import get_llm, add_llm_args
+from common.sims import get_sim, add_sim_args
 
 nltk.download("punkt", quiet=True)
 
@@ -107,7 +107,7 @@ def evaluate_correctness(dataset_row, answer, nli):
     clean_gt = clean_sentence(gt_answer)
     answer_words = set(clean_answer.split())
     gt_words = set(clean_gt.split())
-    answer_overlap = len(answer_words.intersection(gt_words)) / len(gt_words)
+    answer_overlap = len(answer_words.intersection(gt_words)) / len(gt_words) if len(gt_words) > 0 else 0
 
     # * calculate answer entailment
     question = dataset_row["question"]
@@ -119,7 +119,7 @@ def evaluate_correctness(dataset_row, answer, nli):
     for supporting_fact_title in dataset_row["supporting_facts"]["title"]:
         citation_idx = dataset_row["context"]["title"].index(supporting_fact_title)
         gt_refs.add(citation_idx)
-    citations_recall = len(refs.intersection(gt_refs)) / len(gt_refs)
+    citations_recall = len(refs.intersection(gt_refs)) / len(gt_refs) if len(gt_refs) > 0 else 0
     citations_precision = len(refs.intersection(gt_refs)) / len(refs) if len(refs) > 0 else 0
 
     return {

@@ -7,10 +7,12 @@ if [ -z "$cmd" ]; then
     exit 1
 fi
 
+RETRY_SECONDS=10
+
 while true; do
     $cmd && break
-    echo "> command failed... retrying in 1 minute"
-    sleep 60
+    echo "> command failed... retrying in $RETRY_SECONDS seconds"
+    sleep $RETRY_SECONDS
 done
 
 echo "> command succeeded"

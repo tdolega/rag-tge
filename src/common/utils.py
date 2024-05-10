@@ -1,7 +1,6 @@
 import os
 import re
 from datasets import load_dataset, concatenate_datasets
-import random
 import hashlib
 
 from common.prompts import PROMPTS
@@ -93,7 +92,7 @@ def create_prompt(row, prompt_id):
     return user_prompt, system_prompt
 
 
-def add_chatml_support(model, tokenizer):
+def ensure_chat_template(model, tokenizer):
     # tokenizer.padding_side = "left" # controversial
     if tokenizer.pad_token == None:
         print("setting pad token to eos token")
@@ -129,3 +128,23 @@ def get_max_memory(margin_percent=0.2):
         "cpu": "100GiB",
         0: "10GiB",
     }
+
+
+def standarize_chat(model_name, chat):
+    LLMS_WITHOUT_SYSTEM_PROMPT = [
+        "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        "mistralai/Mistral-7B-Instruct-v0.1",
+        "mistralai/Mistral-7B-Instruct-v0.2",
+        "google/gemma-1.1-2b-it",
+        "google/gemma-1.1-7b-it",
+    ]
+    if model_name not in LLMS_WITHOUT_SYSTEM_PROMPT:
+        return chat
+    if chat[0]["role"] != "system":
+        return chat
+    pseudo_system = [
+        {"role": "user", "content": chat[0]["content"]},
+        {"role": "assistant", "content": "Understood."},
+    ]
+    rest = chat[1:]
+    return pseudo_system + rest

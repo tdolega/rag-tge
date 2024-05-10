@@ -3,7 +3,7 @@ import json
 from tqdm.auto import tqdm
 from dotenv import load_dotenv
 
-from common.llms.llms import get_llm, add_llm_args
+from common.llms import get_llm, add_llm_args
 from common.utils import get_start_idx, get_dataset, create_prompt, obj_to_filename
 
 load_dotenv()

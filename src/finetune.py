@@ -9,7 +9,7 @@ from distutils.util import strtobool
 from dotenv import load_dotenv
 
 from common.consts import DS_UPLOAD_PATH, MODELS_DIR
-from common.utils import add_chatml_support
+from common.utils import ensure_chat_template, standarize_chat
 
 # todo: learn only responses, not prompts (set attention correctly)
 
@@ -43,8 +43,8 @@ def get_args():
     parser.add_argument("--lora_dropout", type=float, default=0.1)
     ######
     parser.add_argument("--epochs", type=int, default=3)
-    parser.add_argument("--batch_size", type=int, default=2, help="most performant when kept to multiples of 8")
-    parser.add_argument("--gradient_accumulation_steps", type=int, default=4)
+    parser.add_argument("--batch_size", type=int, default=8, help="most performant when kept to multiples of 8")
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--warmup_ratio", type=float, default=0.05)
     parser.add_argument("--weight_decay", type=float, default=0.01)
     parser.add_argument("--max_grad_norm", type=float, default=0.3, help="default is 1.0")
@@ -58,7 +58,7 @@ def get_args():
     parser.add_argument("--dataset_num_proc", type=int, default=8)
     parser.add_argument("--dataloader_num_workers", type=int, default=4)
     ######
-    parser.add_argument("--save_steps_denom", type=int, default=4, help="will set save_steps to 1/n")
+    parser.add_argument("--save_steps_denom", type=int, default=8, help="will set save_steps to 1/n")
     parser.add_argument("--eval_steps_denom", type=int, default=32, help="will set eval_steps to 1/n")
     parser.add_argument("--push_to_hub", type=boolean, default=True)
     parser.add_argument("--save_total_limit", type=int, default=1)
@@ -161,18 +161,19 @@ def get_dataset(args):
     return dataset
 
 
-def format_conversation(tokenizer, system_prompt, user_prompt, assistant_prompt):
+def format_conversation(args, tokenizer, system_prompt, user_prompt, assistant_prompt):
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
         {"role": "assistant", "content": assistant_prompt},
     ]
-    return tokenizer.apply_chat_template(messages, tokenize=False).strip()
+    messages = standarize_chat(args.input_model_name, messages)
+    return tokenizer.apply_chat_template(messages, tokenize=False)
 
 
-def get_formatter(tokenizer):
+def get_formatter(args, tokenizer):
     def format_conversations(rows):
-        return [format_conversation(tokenizer, rows["system_prompt"][i], rows["user_prompt"][i], rows["answer"][i]) for i in range(len(rows["system_prompt"]))]
+        return [format_conversation(args, tokenizer, system_prompt=rows["system_prompt"][i], user_prompt=rows["user_prompt"][i], assistant_prompt=rows["answer"][i]) for i in range(len(rows["system_prompt"]))]
 
     return format_conversations
 
@@ -184,7 +185,7 @@ def get_trainer(args, model, tokenizer, peft_config, dataset):
         max_seq_length=args.max_seq_length,
         train_dataset=dataset["train"],
         eval_dataset=dataset["test"],
-        formatting_func=get_formatter(tokenizer),
+        formatting_func=get_formatter(args, tokenizer),
         data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False, pad_to_multiple_of=8),
         packing=False,
         dataset_num_proc=min(args.dataset_num_proc, os.cpu_count()),  # fails on some systems
@@ -225,24 +226,8 @@ def get_trainer(args, model, tokenizer, peft_config, dataset):
     )
 
 
-def print_memory():
-    all_memory_used = 0
-    all_memory_total = 0
-    for i in range(torch.cuda.device_count()):
-        gpu_stats = torch.cuda.get_device_properties(i)
-        memory_used = torch.cuda.max_memory_reserved(i) / 1024 / 1024 / 1024
-        memory_total = gpu_stats.total_memory / 1024 / 1024 / 1024
-        all_memory_used += memory_used
-        all_memory_total += memory_total
-        print(f"GPU {i}: {gpu_stats.name} (used {memory_used:.1f} of {memory_total:.1f} GiB)")
-    if torch.cuda.device_count() > 1:
-        print(f"total {all_memory_used:.1f} of {all_memory_total:.1f} GiB of memory reserved")
-
-
 def train(args, trainer):
-    print_memory()
     trainer_stats = trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
-    print_memory()
     train_runtime = timedelta(seconds=trainer_stats.metrics["train_runtime"])
     print(f"training took {train_runtime}")
 
@@ -251,7 +236,7 @@ if __name__ == "__main__":
     args = get_args()
     os.environ["WANDB_PROJECT"] = args.output_model_name
     model, tokenizer, peft_config = get_model(args)
-    model, tokenizer = add_chatml_support(model, tokenizer)
+    model, tokenizer = ensure_chat_template(model, tokenizer)
     dataset = get_dataset(args)
     trainer = get_trainer(args, model, tokenizer, peft_config, dataset)
     train(args, trainer)

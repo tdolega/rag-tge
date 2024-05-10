@@ -7,7 +7,7 @@ def get_nli(args):
 
     if model_name.startswith("t5_"):
         model_name = model_name[len("t5_") :]
-        model = NLI_T5(model_name)
+        model = NLI_T5(model_name, device=args.nli_device)
     elif model_name == "interceptor":
         model = NLI_INTERCEPTOR()
     else:
@@ -32,4 +32,10 @@ def add_nli_args(parser):
         type=str,
         default="t5_tdolega/t5_xxl_true_nli_mixture-bf16",
         help='evaluator model name like: "t5_google/t5_xxl_true_nli_mixture" for T5 evaluator',
+    )
+    parser.add_argument(
+        "--nli_device",
+        type=str,
+        default="cuda",
+        help="device to run NLI model on, for example: 'auto', 'cuda', 'cpu'",
     )
