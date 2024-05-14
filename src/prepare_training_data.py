@@ -36,6 +36,12 @@ def does_satisfy_train_requirements(result):
         and result["correctness"]["citations_recall"] == 1
         and result["correctness"]["citations_precision"] == 1
         and result["quality"]["answer_relevance"] > 0.7  # big limiter
+        and result["citations"]["n_overcitations"] == 0
+        and result["citations"]["n_sentences"] <= 3
+        and all(sentence.endswith("].") for sentence in result["citations"]["sentences"])
+        and not any("document [" in sentence.lower() for sentence in result["citations"]["sentences"])
+        and all(any(char.isalpha() for char in sentence) for sentence in result["citations"]["sentences"])
+        and all("according to" not in sentence.lower() for sentence in result["citations"]["sentences"])
     )
 
 
@@ -109,15 +115,16 @@ def append_questions(training_answers):
         user_prompt, system_prompt = create_prompt(dataset_row, BEST_PROMPT_ID)
         training_data.append(
             {
-                "system_prompt": system_prompt,
-                "user_prompt": user_prompt,
+                # "system_prompt": system_prompt,
+                # "user_prompt": user_prompt,
+                "prompt": user_prompt,
                 "answer": answer,
             }
         )
     return training_data
 
 
-def create_dataset(data, test_size=80):
+def create_dataset(data, test_size=128):
     dataset = datasets.Dataset.from_pandas(pd.DataFrame(data=data))
     dataset = dataset.shuffle(seed=50)
     dataset = dataset.train_test_split(test_size=test_size, seed=50)

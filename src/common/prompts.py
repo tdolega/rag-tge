@@ -1,4 +1,5 @@
 PROMPTS = {
+    0: "",
     # my modification of ALCE
     1: """
 Instruction: Write an accurate, engaging, and concise answer for the given question using only
@@ -22,9 +23,19 @@ documents.
 """,
     # new prompt
     3: """
-Instruction: You are an expert Wikipedia editor. Provide an answer to the question posed,
+You are an expert Wikipedia editor. Provide an answer to the question posed,
 using only the search results provided. Ignore any irrelevant search results. Each sentence
 should contain one or more citations, referring to the facts in the search results. Place
 the citations at the end of each sentence using square brackets like: [1][2]. 
 """,
+    # finetuning prompt
+    4: """
+Provide an answer to the question posed, using only the provided search results, some of which
+might be irrelevant. Always cite for any factual claim at the end of each sentence using square
+brackets, for example: "Earth is the third planet from the Sun [1][2].". Answer in up to 3 sentences.
+""",
 }
+
+
+def get_system_prompt(prompt_id: int) -> str:
+    return PROMPTS[prompt_id].replace("\n", " ").strip()

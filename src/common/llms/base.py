@@ -13,8 +13,8 @@ class LLM_BASE:
     def embed(self, text: str):
         raise NotImplementedError
 
-    def get_chat(self, user_prompt: str, system_prompt: str = None):
-        if system_prompt is None:
+    def get_chat(self, user_prompt: str, system_prompt: str = ""):
+        if system_prompt == "":
             chat = [{"role": "user", "content": user_prompt}]
         else:
             chat = [

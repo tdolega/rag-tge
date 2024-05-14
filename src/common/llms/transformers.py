@@ -37,7 +37,7 @@ class LLM_TRANSFORMERS(LLM_BASE):
                 max_new_tokens=self.max_new_tokens,
                 do_sample=True,
                 temperature=self.temperature,
-                eos_token_id=self.terminators,
+                eos_token_id=self.terminators, # todo: check without this
                 pad_token_id=self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.eos_token_id,
                 # top_p=0.9,
             )

@@ -3,7 +3,7 @@ import re
 from datasets import load_dataset, concatenate_datasets
 import hashlib
 
-from common.prompts import PROMPTS
+from common.prompts import get_system_prompt
 from common.consts import EVAL_SIZE
 
 
@@ -82,7 +82,7 @@ def is_object_subset(subset, superset):
 
 
 def create_prompt(row, prompt_id):
-    system_prompt = PROMPTS[prompt_id].replace("\n", " ").strip()
+    system_prompt = get_system_prompt(prompt_id)
 
     user_prompt = ""
     for i, (title, sentences) in enumerate(zip(row["context"]["title"], row["context"]["sentences"])):
@@ -131,16 +131,14 @@ def get_max_memory(margin_percent=0.2):
 
 
 def standarize_chat(model_name, chat):
-    LLMS_WITHOUT_SYSTEM_PROMPT = [
-        "mistralai/Mixtral-8x7B-Instruct-v0.1",
-        "mistralai/Mistral-7B-Instruct-v0.1",
-        "mistralai/Mistral-7B-Instruct-v0.2",
-        "google/gemma-1.1-2b-it",
-        "google/gemma-1.1-7b-it",
-    ]
-    if model_name not in LLMS_WITHOUT_SYSTEM_PROMPT:
-        return chat
     if chat[0]["role"] != "system":
+        return chat
+    LLMS_WITHOUT_SYSTEM_PROMPT = [
+        "mixtral",
+        "mistral",
+        "gemma",
+    ]
+    if not any([name in model_name.lower() for name in LLMS_WITHOUT_SYSTEM_PROMPT]):
         return chat
     pseudo_system = [
         {"role": "user", "content": chat[0]["content"]},

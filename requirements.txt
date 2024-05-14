@@ -8,6 +8,9 @@
 ## or
 # CUDACXX=/usr/local/cuda-12/bin/nvcc CMAKE_ARGS="-DLLAMA_CUBLAS=on -DCMAKE_CUDA_ARCHITECTURES=native" FORCE_CMAKE=1 pip install llama-cpp-python==0.2.55 --no-cache-dir --force-reinstall --upgrade
 
+# pip install "unsloth[cu121-ampere-torch220] @ git+https://github.com/unslothai/unsloth.git"
+# pip install --no-deps "xformers<0.0.26" trl peft accelerate bitsandbytes
+
 ## auto installation
 accelerate
 bitsandbytes
