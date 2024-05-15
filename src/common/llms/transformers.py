@@ -25,10 +25,6 @@ class LLM_TRANSFORMERS(LLM_BASE):
             print("ensuring chat template")
             self.model, self.tokenizer = ensure_chat_template(self.model, self.tokenizer)
 
-        self.terminators = [self.tokenizer.eos_token_id]
-        if "llama-3" in model_name.lower():
-            self.terminators.append(self.tokenizer.convert_tokens_to_ids("<|eot_id|>"))
-
     def generate(self, user_prompt: str, system_prompt: str = None):
         inputs = self.tokenizer.apply_chat_template(self.get_chat(user_prompt, system_prompt), return_tensors="pt", add_generation_prompt=True).to(self.model.device)
         with torch.inference_mode():
@@ -37,9 +33,11 @@ class LLM_TRANSFORMERS(LLM_BASE):
                 max_new_tokens=self.max_new_tokens,
                 do_sample=True,
                 temperature=self.temperature,
-                eos_token_id=self.terminators, # todo: check without this
                 pad_token_id=self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.eos_token_id,
-                # top_p=0.9,
+                eos_token_id=self.tokenizer.eos_token_id,
+                repetition_penalty=1.2,
+                top_k=40,
+                top_p=0.9,
             )
         response = outputs[0][inputs.shape[-1] :]
         response = self.tokenizer.decode(response, skip_special_tokens=True)

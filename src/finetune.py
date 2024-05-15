@@ -1,15 +1,18 @@
-import argparse
 import os
+import argparse
 import torch
 from datasets import load_dataset
-from transformers import TrainingArguments, DataCollatorForLanguageModeling
+from transformers import TrainingArguments, DataCollatorForLanguageModeling, GenerationConfig
+from transformers.integrations import WandbCallback
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from datetime import timedelta
 from distutils.util import strtobool
 from dotenv import load_dotenv
+import wandb
+from tqdm.auto import tqdm
 
 from common.consts import DS_UPLOAD_PATH, MODELS_DIR
-from common.utils import ensure_chat_template, standarize_chat
+from common.utils import ensure_chat_template, standardize_chat, get_chat
 from common.prompts import get_system_prompt
 
 load_dotenv()
@@ -31,6 +34,8 @@ def get_args():
     parser.add_argument("--output_model_name", type=str, default="rag-tge_Mistral_LoRA")
     parser.add_argument("--resume_from_checkpoint", type=boolean, default=False)
     parser.add_argument("--use_unsloth", type=boolean, default=False)
+    parser.add_argument("--seed", type=int, default=50)
+    parser.add_argument("--system_prompt_id", type=int, default=4)
     ######
     parser.add_argument("--load_in_4bit", type=boolean, default=False, help="QLoRA")
     parser.add_argument("--max_seq_length", type=int, default=8192)
@@ -60,14 +65,11 @@ def get_args():
     ######
     parser.add_argument("--save_steps_denom", type=int, default=1, help="will set save_steps to 1/n")
     parser.add_argument("--eval_steps_denom", type=int, default=4, help="will set eval_steps to 1/n")
+    parser.add_argument("--eval_generation_samples", type=int, default=5)
     parser.add_argument("--push_to_hub", type=boolean, default=True)
     parser.add_argument("--save_total_limit", type=int, default=1)
     parser.add_argument("--limit_train", type=int, default=None)
     parser.add_argument("--limit_test", type=int, default=None)
-    ######
-    parser.add_argument("--seed", type=int, default=50)
-    ######
-    parser.add_argument("--system_prompt_id", type=int, default=4)
     ######
     args = parser.parse_args()
     print(">>> args:\n", "\n".join([f"{k}: {v}" for k, v in vars(args).items()]), "\n<<<")
@@ -128,12 +130,10 @@ def get_model_transformers(args):
         torch_dtype=torch.bfloat16,
         use_cache=False,
     )
+
     tokenizer = AutoTokenizer.from_pretrained(
         args.input_model_name,
         use_fast=False,
-        add_eos_token=True,
-        model_max_length=args.max_seq_length,
-        padding_side="left", # todo: check this
     )
 
     peft_config = LoraConfig(
@@ -170,37 +170,98 @@ def get_dataset(args):
 
 
 def format_conversation(args, tokenizer, user_prompt, assistant_prompt):
-    system_prompt = get_system_prompt(args.system_prompt_id)
     messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": get_system_prompt(args.system_prompt_id)},
         {"role": "user", "content": user_prompt},
         {"role": "assistant", "content": assistant_prompt},
+        {"role": "user", "content": "Thank you!"},
+        {"role": "assistant", "content": "You're welcome!"},
     ]
-    messages = standarize_chat(args.input_model_name, messages)
-    return tokenizer.apply_chat_template(messages, tokenize=False)
+    messages = standardize_chat(args.input_model_name, messages)
+    formatted = tokenizer.apply_chat_template(messages, tokenize=False)
+    return formatted
 
 
 def get_formatter(args, tokenizer):
     def format_conversations(rows):
+        ## needed if using unsloth, but disabled because it breaks dataset caching
+        # if isinstance(rows['prompt'], str):
+        #     rows = {'prompt': [rows['prompt']], 'answer': [rows['answer']]}
+        #     return format_conversations(rows)[0]
+        ##
+
         formatted = [format_conversation(args, tokenizer, user_prompt=rows["prompt"][i], assistant_prompt=rows["answer"][i]) for i in range(len(rows["prompt"]))]
         max_token_count = max([len(tokenizer.encode(f)) for f in formatted])
-        print(f"worker: max_token_count: {max_token_count} -> {'OK' if max_token_count <= args.max_seq_length else 'TOO LONG'}")
+        if max_token_count > args.max_seq_length:
+            raise ValueError(f"max_token_count: {max_token_count} > args.max_seq_length: {args.max_seq_length}")
         return formatted
 
     return format_conversations
+
+
+class LLMSampleCB(WandbCallback):
+    def __init__(self, trainer, test_dataset, num_samples, args, log_model="checkpoint"):
+        super().__init__()
+        self._log_model = log_model
+        self.sample_dataset = test_dataset.select(range(num_samples))
+        self.model, self.tokenizer = trainer.model, trainer.tokenizer
+        self.gen_config = GenerationConfig.from_pretrained(trainer.model.name_or_path)
+        self.system_prompt = get_system_prompt(args.system_prompt_id)
+        self.model_name = args.output_model_name
+
+    def generate(self, prompt):
+        inputs = self.tokenizer(prompt, return_tensors="pt")["input_ids"].to(self.model.device)
+        with torch.inference_mode():
+            outputs = self.model.generate(
+                inputs,
+                generation_config=self.gen_config,
+                max_new_tokens=256,
+                do_sample=True,
+                temperature=0.1,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+                repetition_penalty=1.2,
+                top_k=40,
+                top_p=0.9,
+            )
+        response = outputs[0][inputs.shape[-1] :]
+        response = self.tokenizer.decode(response, skip_special_tokens=False)
+        return response
+
+    def samples_table(self, global_step):
+        records_table = wandb.Table(columns=["global_step", "prompt", "generation"])
+        for row in tqdm(self.sample_dataset, leave=False):
+            chat = get_chat(self.model_name, user_prompt=row["prompt"], system_prompt=self.system_prompt)
+            prompt = self.tokenizer.apply_chat_template(chat, add_generation_prompt=True, tokenize=False)
+            generation = self.generate(prompt)
+            records_table.add_data(global_step, prompt, generation)
+        return records_table
+
+    def on_evaluate(self, args, state, control, **kwargs):
+        super().on_evaluate(args, state, control, **kwargs)
+        records_table = self.samples_table(state.global_step)
+        self._wandb.log({"sample_predictions": records_table})
 
 
 def get_trainer(args, model, tokenizer, peft_config, dataset):
     if args.data_collator == "standard":
         data_collator = DataCollatorForLanguageModeling(tokenizer, mlm=False, pad_to_multiple_of=8)
     elif args.data_collator == "completion":
-        tokens = tokenizer("\nQuestion:", add_special_tokens=False)["input_ids"]
-        print("tokens before:", tokens, tokenizer.decode(tokens))
-        tokens = tokens[1:]  # remove this weird special token??
-        print("tokens after:", tokens, tokenizer.decode(tokens))
-        data_collator = DataCollatorForCompletionOnlyLM(tokenizer=tokenizer, response_template=tokens)
+        answer_detect_text = "\nQuestion:"
+        answer_detect_tokens = tokenizer(answer_detect_text, add_special_tokens=False)["input_ids"]
+        original_len = len(answer_detect_tokens)
+        # some tokenizers, like mistral, adds some weird tokens (not bos/eos), we need to remove them
+        suffixed_tokens = tokenizer(f"{answer_detect_text}...", add_special_tokens=False)["input_ids"]
+        answer_detect_tokens = [t for t, s in zip(answer_detect_tokens, suffixed_tokens) if t == s]
+        prefixed_tokens = tokenizer(f"...{answer_detect_text}", add_special_tokens=False)["input_ids"]
+        answer_detect_tokens = [t for t, s in zip(answer_detect_tokens[::-1], prefixed_tokens[::-1]) if t == s][::-1]
+        new_len = len(answer_detect_tokens)
+        if original_len != new_len:
+            print(f"WARNING: tokenizer reduced the answer_detect_tokens from {original_len} to {new_len}")
+        print(f'answer detect tokens: {answer_detect_tokens} => "{tokenizer.decode(answer_detect_tokens)}"')
+        data_collator = DataCollatorForCompletionOnlyLM(tokenizer=tokenizer, response_template=answer_detect_tokens)
 
-    return SFTTrainer(
+    trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
         max_seq_length=args.max_seq_length,
@@ -217,6 +278,7 @@ def get_trainer(args, model, tokenizer, peft_config, dataset):
             per_device_eval_batch_size=args.batch_size,
             gradient_accumulation_steps=args.gradient_accumulation_steps,
             gradient_checkpointing=args.gradient_checkpointing,
+            gradient_checkpointing_kwargs={"use_reentrant": False},  # doesn't hide the warning anyway
             group_by_length=True,
             num_train_epochs=args.epochs,
             evaluation_strategy="steps",
@@ -248,6 +310,11 @@ def get_trainer(args, model, tokenizer, peft_config, dataset):
             "add_special_tokens": False,  # we are adding it manually in the formatting function
         },
     )
+
+    wandb_callback = LLMSampleCB(trainer=trainer, test_dataset=dataset["test"], num_samples=args.eval_generation_samples, args=args)
+    trainer.add_callback(wandb_callback)
+
+    return trainer
 
 
 def train(args, trainer):

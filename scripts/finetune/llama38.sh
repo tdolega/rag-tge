@@ -7,14 +7,14 @@ python src/finetune.py \
     --output_model_name rag-tge_Llama-3-8B_LoRA \
     --batch_size 1 \
     --gradient_accumulation_steps 8 \
-    --save_steps_denom 40 \
-    --eval_steps_denom 80 \
+    --save_steps_denom 32 \
+    --eval_steps_denom 32 \
     --lora_rank 32 \
     --lora_alpha 32 \
-    --lr_scheduler_type constant_with_warmup \
-    --epochs 5 \
+    --epochs 3 \
     --data_collator completion \
+    --max_seq_length 4096 \
     "$@"
 
-# --lora_rank 64 \
-# --lora_alpha 128 \
+    # --lora_rank 64 \
+    # --lora_alpha 128 \

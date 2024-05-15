@@ -1,4 +1,4 @@
-from common.utils import standarize_chat
+from common.utils import get_chat
 
 
 class LLM_BASE:
@@ -14,11 +14,4 @@ class LLM_BASE:
         raise NotImplementedError
 
     def get_chat(self, user_prompt: str, system_prompt: str = ""):
-        if system_prompt == "":
-            chat = [{"role": "user", "content": user_prompt}]
-        else:
-            chat = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ]
-        return standarize_chat(self.model_name, chat)
+        return get_chat(self.model_name, user_prompt, system_prompt)

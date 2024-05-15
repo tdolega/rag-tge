@@ -95,8 +95,16 @@ def create_prompt(row, prompt_id):
 def ensure_chat_template(model, tokenizer):
     # tokenizer.padding_side = "left" # controversial
     if tokenizer.pad_token == None:
-        print("setting pad token to eos token")
-        tokenizer.pad_token = tokenizer.eos_token
+        if "llama-3" in model.name_or_path.lower():
+            print("setting pad token to '<|end_of_text|>'")  # https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct/discussions/101
+            tokenizer.pad_token = "<|end_of_text|>"
+        elif tokenizer.unk_token != None:
+            assert tokenizer.unk_token != tokenizer.eos_token, "unk token is eos token"
+            print("setting pad token to unk token")
+            tokenizer.pad_token = tokenizer.unk_token
+        else:
+            print("WARNING: setting pad token to eos token")
+            tokenizer.pad_token = tokenizer.eos_token
 
     if tokenizer.chat_template is not None:
         print("chat template already set")
@@ -130,7 +138,7 @@ def get_max_memory(margin_percent=0.2):
     }
 
 
-def standarize_chat(model_name, chat):
+def standardize_chat(model_name, chat):
     if chat[0]["role"] != "system":
         return chat
     LLMS_WITHOUT_SYSTEM_PROMPT = [
@@ -146,3 +154,14 @@ def standarize_chat(model_name, chat):
     ]
     rest = chat[1:]
     return pseudo_system + rest
+
+
+def get_chat(model_name, user_prompt: str, system_prompt: str = ""):
+    if system_prompt == "":
+        chat = [{"role": "user", "content": user_prompt}]
+    else:
+        chat = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+    return standardize_chat(model_name, chat)

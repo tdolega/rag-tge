@@ -1,15 +1,17 @@
 ## python
-# python==3.11
+# python==3.10
 
-## manual installation
+## flash attention
 # pip install flash-attn # --no-build-isolation
+
 ## llama
 # pip install llama-cpp-python==0.2.55 --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu122
 ## or
 # CUDACXX=/usr/local/cuda-12/bin/nvcc CMAKE_ARGS="-DLLAMA_CUBLAS=on -DCMAKE_CUDA_ARCHITECTURES=native" FORCE_CMAKE=1 pip install llama-cpp-python==0.2.55 --no-cache-dir --force-reinstall --upgrade
 
-# pip install "unsloth[cu121-ampere-torch220] @ git+https://github.com/unslothai/unsloth.git"
-# pip install --no-deps "xformers<0.0.26" trl peft accelerate bitsandbytes
+## unsloth
+# conda install pytorch-cuda=<12.1/11.8> pytorch cudatoolkit xformers -c pytorch -c nvidia -c xformers
+# pip install "unsloth[cu121-ampere-torch230] @ git+https://github.com/unslothai/unsloth.git"
 
 ## auto installation
 accelerate
