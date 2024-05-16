@@ -18,6 +18,7 @@ accelerate
 bitsandbytes
 black[jupyter]
 datasets
+deepl
 gradio-client
 ninja
 nltk
