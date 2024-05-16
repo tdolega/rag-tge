@@ -66,7 +66,7 @@ def get_args():
     parser.add_argument("--save_steps_denom", type=int, default=1, help="will set save_steps to 1/n")
     parser.add_argument("--eval_steps_denom", type=int, default=4, help="will set eval_steps to 1/n")
     parser.add_argument("--eval_generation_samples", type=int, default=5)
-    parser.add_argument("--push_to_hub", type=boolean, default=True)
+    parser.add_argument("--push_to_hub", type=boolean, default=False)
     parser.add_argument("--save_total_limit", type=int, default=1)
     parser.add_argument("--limit_train", type=int, default=None)
     parser.add_argument("--limit_test", type=int, default=None)
@@ -200,10 +200,10 @@ def get_formatter(args, tokenizer):
 
 
 class LLMSampleCB(WandbCallback):
-    def __init__(self, trainer, test_dataset, num_samples, args, log_model="checkpoint"):
+    def __init__(self, args, trainer, test_dataset):
         super().__init__()
-        self._log_model = log_model
-        self.sample_dataset = test_dataset.select(range(num_samples))
+        self._log_model = False
+        self.sample_dataset = test_dataset.select(range(args.eval_generation_samples))
         self.model, self.tokenizer = trainer.model, trainer.tokenizer
         self.gen_config = GenerationConfig.from_pretrained(trainer.model.name_or_path)
         self.system_prompt = get_system_prompt(args.system_prompt_id)
@@ -311,7 +311,7 @@ def get_trainer(args, model, tokenizer, peft_config, dataset):
         },
     )
 
-    wandb_callback = LLMSampleCB(trainer=trainer, test_dataset=dataset["test"], num_samples=args.eval_generation_samples, args=args)
+    wandb_callback = LLMSampleCB(args=args, trainer=trainer, test_dataset=dataset["test"])
     trainer.add_callback(wandb_callback)
 
     return trainer

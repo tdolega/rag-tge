@@ -1,13 +1,13 @@
 import argparse
 from datasets import load_dataset
 from distutils.util import strtobool
-from tqdm.auto import tqdm
 import json
 import os
 import deepl
+import googletrans
 from dotenv import load_dotenv
 
-from common.consts import DS_UPLOAD_PATH
+from common.consts import DS_UPLOAD_PATH, DS_SAVE_PATH
 
 load_dotenv()
 
@@ -46,22 +46,53 @@ class Cache:
 class Translator:
     def __init__(self, args):
         self.cache = Cache(args.cache_file)
-        api_key = os.getenv("DEEPL_KEY")
-        self.client = deepl.Translator(api_key)
+        self.target_language = args.language
 
     def __call__(self, text, context=None):
         if text in self.cache:
             return self.cache[text]
 
-        translated = self.client.translate_text(text, target_lang="PL", context=context).text
+        # print("> text:", text)
+        translated = self.translate_nocache(text, context)
+        # print("> translated:", translated)
 
         self.cache[text] = translated
         return translated
 
 
+class DeepLTranslator(Translator):
+    def __init__(self, args):
+        super().__init__(args)
+        api_key = os.getenv("DEEPL_KEY")
+        self.client = deepl.Translator(api_key)
+
+    def translate_nocache(self, text, context=None):
+        return self.client.translate_text(text, target_lang=self.target_language, context=context).text
+
+
+class GoogleTranslator(Translator):
+    def __init__(self, args):
+        super().__init__(args)
+        self.client = googletrans.Translator()
+
+    def translate_nocache(self, text, context=None):
+        # ? context is not supported by googletrans
+        return self.client.translate(text, dest=self.target_language).text
+
+
+def get_translator(args):
+    match args.translator.lower():
+        case "deepl":
+            return DeepLTranslator(args)
+        case "google":
+            return GoogleTranslator(args)
+        case _:
+            raise ValueError(f"unknown translator: {args.translator}")
+
+
 class Main:
     def __init__(self, args):
-        self.translator = Translator(args)
+        self.translator = get_translator(args)
 
     def translate_example(self, example):
         translated = {
@@ -71,7 +102,7 @@ class Main:
         return translated
 
     def translate_dataset(self, args):
-        dataset = load_dataset(args.dataset_name)
+        dataset = load_dataset(args.input_dataset_name)
 
         print(dataset)
         if args.train_limit:
@@ -84,20 +115,29 @@ class Main:
         dataset = dataset.map(self.translate_example)
         dataset.save_to_disk(args.output_dir)
         if args.push_to_hub:
-            dataset.push_to_hub(DS_UPLOAD_PATH + "_pl")
+            dataset.push_to_hub(args.output_dataset_name)
         print(dataset)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="finetune", description="Finetune a language model on a dataset of conversations.")
     boolean = lambda x: bool(strtobool(str(x)))
-    parser.add_argument("--dataset_name", type=str, default=DS_UPLOAD_PATH)
-    parser.add_argument("--output_dir", type=str, default="../data/training_ds_pl")
-    parser.add_argument("--cache_file", type=str, default="../data/translation_cache.jsonl")
+    parser.add_argument("--input_dataset_name", type=str, default=DS_UPLOAD_PATH)
+    parser.add_argument("--output_dataset_name", type=str, default=None)
+    parser.add_argument("--output_dir", type=str, default=None)
+    parser.add_argument("--cache_file", type=str, default=None)
     parser.add_argument("--push_to_hub", type=boolean, default=False)
     parser.add_argument("--train_limit", type=int, default=None)
     parser.add_argument("--test_limit", type=int, default=None)
+    parser.add_argument("--language", type=str, default="pl")
+    parser.add_argument("--translator", type=str, default="deepl")
     args = parser.parse_args()
+    if args.output_dataset_name is None:
+        args.output_dataset_name = f"{DS_UPLOAD_PATH}_{args.language}"
+    if args.output_dir is None:
+        args.output_dir = f"{DS_SAVE_PATH}_{args.language}"
+    if args.cache_file is None:
+        args.cache_file = f"{args.output_dir}/translation_cache.jsonl"
     print(">>> args:\n", "\n".join([f"{k}: {v}" for k, v in vars(args).items()]), "\n<<<")
 
     main = Main(args)

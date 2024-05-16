@@ -19,7 +19,9 @@ bitsandbytes
 black[jupyter]
 datasets
 deepl
+googletrans==3.1.0a0
 gradio-client
+matplotlib
 ninja
 nltk
 notebook
