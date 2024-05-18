@@ -34,6 +34,12 @@ Provide an answer to the question posed, using only the provided search results,
 might be irrelevant. Always cite for any factual claim at the end of each sentence using square
 brackets, for example: "Earth is the third planet from the Sun [1][2].". Answer in up to 3 sentences.
 """,
+    # polish prompt
+    5: """
+Udziel odpowiedzi na zadane pytanie, korzystając wyłącznie z podanych wyników wyszukiwania, z pośród
+których niektóre mogą być nieistotne. Zawsze cytuj źródła na końcu każdego zdania, używając nawiasów
+kwadratowych, na przykład: "Ziemia jest trzecią planetą od Słońca [1][2]". Odpowiedz w maksymalnie 3 zdaniach.
+""",
 }
 
 

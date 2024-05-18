@@ -11,9 +11,7 @@ python src/finetune.py \
     --eval_steps_denom 32 \
     --lora_rank 128 \
     --lora_alpha 64 \
-    --epochs 3 \
+    --epochs 2 \
     --data_collator completion \
     --max_seq_length 4096 \
     "$@"
-
-    # --lr_scheduler_type constant_with_warmup \

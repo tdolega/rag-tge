@@ -52,9 +52,9 @@ def clean_sentence(sentence):
     return re.sub(r"[^a-z0-9 ]", "", sentence)  # keep only alphanumeric characters and space
 
 
-def get_refs_from_sentence(sentence):
+def get_refs(sentence):
     citations = [int(citation[1:-1]) - 1 for citation in re.findall(r"\[\d+\]", sentence)]  # 0-indexed instead of 1-indexed like in text
-    return list(set(citations))
+    return sorted(list(set(citations)))
 
 
 def obj_to_filename(obj):
@@ -138,7 +138,7 @@ def get_max_memory(margin_percent=0.2):
     }
 
 
-def standardize_chat(model_name, chat):
+def standardize_chat(model_name, chat, language="en"):
     if chat[0]["role"] != "system":
         return chat
     LLMS_WITHOUT_SYSTEM_PROMPT = [
@@ -148,10 +148,13 @@ def standardize_chat(model_name, chat):
     ]
     if not any([name in model_name.lower() for name in LLMS_WITHOUT_SYSTEM_PROMPT]):
         return chat
-    pseudo_system = [
-        {"role": "user", "content": chat[0]["content"]},
-        {"role": "assistant", "content": "Understood."},
-    ]
+    pseudo_system = [{"role": "user", "content": chat[0]["content"]}]
+    if language == "en":
+        pseudo_system.append({"role": "assistant", "content": "Understood."})
+    elif language == "pl":
+        pseudo_system.append({"role": "assistant", "content": "Rozumiem."})
+    else:
+        raise NotImplementedError(f"language {language} not supported")
     rest = chat[1:]
     return pseudo_system + rest
 

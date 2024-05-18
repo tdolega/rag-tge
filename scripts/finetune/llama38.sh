@@ -11,10 +11,7 @@ python src/finetune.py \
     --eval_steps_denom 32 \
     --lora_rank 32 \
     --lora_alpha 32 \
-    --epochs 3 \
+    --epochs 2 \
     --data_collator completion \
     --max_seq_length 4096 \
     "$@"
-
-    # --lora_rank 64 \
-    # --lora_alpha 128 \

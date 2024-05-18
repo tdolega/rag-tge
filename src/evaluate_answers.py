@@ -10,7 +10,7 @@ from common.utils import (
     remove_citations,
     merge_sentences,
     clean_sentence,
-    get_refs_from_sentence,
+    get_refs,
     filename_to_obj,
     obj_to_filename,
 )
@@ -40,7 +40,7 @@ def evaluate_citations(dataset_row, answer, nli):
     for sentence_idx, sentence in enumerate(sentences):
         decited_sentence = remove_citations(sentence)
 
-        refs = get_refs_from_sentence(sentence)
+        refs = get_refs(sentence)
         n_out_of_range = len([ref for ref in refs if ref >= len(passages)])
         if n_out_of_range > 0:  # * citation out of range
             out_of_range[sentence_idx] = n_out_of_range
@@ -114,7 +114,7 @@ def evaluate_correctness(dataset_row, answer, nli):
     answer_entail = nli.evaluate(f"{question} {answer}", f"{question} {gt_answer}")
 
     # * calculate citations overlap with ground truth
-    refs = set(get_refs_from_sentence(answer))
+    refs = set(get_refs(answer))
     gt_refs = set()
     for supporting_fact_title in dataset_row["supporting_facts"]["title"]:
         citation_idx = dataset_row["context"]["title"].index(supporting_fact_title)

@@ -114,8 +114,6 @@ class Main:
 
         dataset = dataset.map(self.translate_example)
         dataset.save_to_disk(args.output_dir)
-        if args.push_to_hub:
-            dataset.push_to_hub(args.output_dataset_name)
         print(dataset)
 
 
@@ -123,19 +121,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="finetune", description="Finetune a language model on a dataset of conversations.")
     boolean = lambda x: bool(strtobool(str(x)))
     parser.add_argument("--input_dataset_name", type=str, default=DS_UPLOAD_PATH)
-    parser.add_argument("--output_dataset_name", type=str, default=None)
     parser.add_argument("--output_dir", type=str, default=None)
     parser.add_argument("--cache_file", type=str, default=None)
-    parser.add_argument("--push_to_hub", type=boolean, default=False)
     parser.add_argument("--train_limit", type=int, default=None)
     parser.add_argument("--test_limit", type=int, default=None)
     parser.add_argument("--language", type=str, default="pl")
     parser.add_argument("--translator", type=str, default="deepl")
     args = parser.parse_args()
-    if args.output_dataset_name is None:
-        args.output_dataset_name = f"{DS_UPLOAD_PATH}_{args.language}"
     if args.output_dir is None:
-        args.output_dir = f"{DS_SAVE_PATH}_{args.language}"
+        args.output_dir = f"{DS_SAVE_PATH}-{args.language}"
     if args.cache_file is None:
         args.cache_file = f"{args.output_dir}/translation_cache.jsonl"
     print(">>> args:\n", "\n".join([f"{k}: {v}" for k, v in vars(args).items()]), "\n<<<")

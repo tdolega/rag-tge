@@ -71,6 +71,8 @@ def get_args():
     parser.add_argument("--limit_train", type=int, default=None)
     parser.add_argument("--limit_test", type=int, default=None)
     ######
+    parser.add_argument("--language", type=str, default="en")
+    ######
     args = parser.parse_args()
     print(">>> args:\n", "\n".join([f"{k}: {v}" for k, v in vars(args).items()]), "\n<<<")
     return args
@@ -174,29 +176,52 @@ def format_conversation(args, tokenizer, user_prompt, assistant_prompt):
         {"role": "system", "content": get_system_prompt(args.system_prompt_id)},
         {"role": "user", "content": user_prompt},
         {"role": "assistant", "content": assistant_prompt},
-        {"role": "user", "content": "Thank you!"},
-        {"role": "assistant", "content": "You're welcome!"},
     ]
-    messages = standardize_chat(args.input_model_name, messages)
+    if args.language == "en":
+        messages.append({"role": "user", "content": "Thank you!"})
+        messages.append({"role": "assistant", "content": "You're welcome!"})
+    elif args.language == "pl":
+        messages.append({"role": "user", "content": "Dziękuję!"})
+        messages.append({"role": "assistant", "content": "Proszę!"})
+    else:
+        raise ValueError(f"unsupported language: {args.language}")
+    messages = standardize_chat(args.input_model_name, messages, args.language)
     formatted = tokenizer.apply_chat_template(messages, tokenize=False)
     return formatted
 
 
-def get_formatter(args, tokenizer):
+def get_formatter(args, tokenizer, check_token_count=True):
     def format_conversations(rows):
-        ## needed if using unsloth, but disabled because it breaks dataset caching
-        # if isinstance(rows['prompt'], str):
-        #     rows = {'prompt': [rows['prompt']], 'answer': [rows['answer']]}
-        #     return format_conversations(rows)[0]
-        ##
+        if isinstance(rows["prompt"], str):
+            rows = {"prompt": [rows["prompt"]], "answer": [rows["answer"]]}
+            return format_conversations(rows)[0]
 
         formatted = [format_conversation(args, tokenizer, user_prompt=rows["prompt"][i], assistant_prompt=rows["answer"][i]) for i in range(len(rows["prompt"]))]
-        max_token_count = max([len(tokenizer.encode(f)) for f in formatted])
-        if max_token_count > args.max_seq_length:
-            raise ValueError(f"max_token_count: {max_token_count} > args.max_seq_length: {args.max_seq_length}")
+        if check_token_count:
+            max_token_count = max([len(tokenizer.encode(f)) for f in formatted])
+            if max_token_count > args.max_seq_length:
+                raise ValueError(f"max_token_count: {max_token_count} > args.max_seq_length: {args.max_seq_length}")
         return formatted
 
     return format_conversations
+
+
+def remove_long_samples(args, tokenizer, dataset):
+    n_removed = 0
+    formatter = get_formatter(args, tokenizer, check_token_count=False)
+
+    def fits_in_context(row):
+        nonlocal n_removed
+        formatted = formatter(row)
+        tokenized_length = len(tokenizer(formatted, return_tensors="pt")["input_ids"][0])
+        is_too_long = tokenized_length > args.max_seq_length
+        n_removed += is_too_long
+        return not is_too_long
+
+    dataset = dataset.filter(fits_in_context)
+    print(f"WARNING: removed {n_removed} samples that were too long")
+    print(dataset)
+    return dataset
 
 
 class LLMSampleCB(WandbCallback):
@@ -247,7 +272,12 @@ def get_trainer(args, model, tokenizer, peft_config, dataset):
     if args.data_collator == "standard":
         data_collator = DataCollatorForLanguageModeling(tokenizer, mlm=False, pad_to_multiple_of=8)
     elif args.data_collator == "completion":
-        answer_detect_text = "\nQuestion:"
+        if args.language == "en":
+            answer_detect_text = "\nQuestion:"
+        elif args.language == "pl":
+            answer_detect_text = "\nPytanie:"
+        else:
+            raise ValueError(f"unsupported language: {args.language}")
         answer_detect_tokens = tokenizer(answer_detect_text, add_special_tokens=False)["input_ids"]
         original_len = len(answer_detect_tokens)
         # some tokenizers, like mistral, adds some weird tokens (not bos/eos), we need to remove them
@@ -329,5 +359,6 @@ if __name__ == "__main__":
     model, tokenizer, peft_config = get_model(args)
     model, tokenizer = ensure_chat_template(model, tokenizer)
     dataset = get_dataset(args)
+    dataset = remove_long_samples(args, tokenizer, dataset)
     trainer = get_trainer(args, model, tokenizer, peft_config, dataset)
     train(args, trainer)
