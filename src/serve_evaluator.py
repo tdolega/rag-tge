@@ -33,29 +33,55 @@ def verify_password(username, password):
 
 def process_requests(evaluator):
     while True:
-        logging.info("ready!")
-        # pobierz zapytanie z kolejki, blokując jeśli kolejka jest pusta
-        (request, context) = request_queue.get()
-        if request is None:
+        job = request_queue.get()
+        if job is None:
             break
-        logging.info("processing...")
-        with app.test_request_context(context["path"], environ_base=context["environ"]):
-            try:
-                response = evaluate(evaluator)
-                context["response"].append(response.get_json())
-            except Exception as e:
-                logging.error(f"error processing request: {e}")
-                context["response"].append({"error": str(e)})
-            request_queue.task_done()
+        try:
+            response = evaluator.evaluate(
+                passages=job["params"]["passages"],
+                question=job["params"]["question"],
+                answer=job["params"]["answer"],
+                language=job["params"]["language"],
+            )
+        except Exception as e:
+            logging.error(f"error during evaluation: {e}")
+            logging.debug(traceback.format_exc())
+            response = {"error": str(e)}
+        job["response"].append(response)
+        request_queue.task_done()
 
 
 @app.route("/evaluate", methods=["GET"])
 @auth.login_required
 def enqueue_request():
-    context = {"path": request.path, "environ": request.environ.copy(), "response": []}
-    request_queue.put((request, context))
-    request_queue.join()
-    return jsonify(context["response"][0])
+    passages = request.args.getlist("passages")
+    question = request.args.get("question", None)
+    answer = request.args.get("answer", None)
+    language = request.args.get("language", "polish")
+
+    if not type(question) == str or not type(answer) == str or not type(language) == str or len(question) == 0 or len(answer) == 0 or len(language) == 0:
+        error = "Parameters 'question', 'answer' and 'language' must be non-empty strings."
+        logging.error(error)
+        return jsonify({"error": error})
+
+    if not type(passages) == list or len(passages) == 0 or not all(type(p) == str for p in passages):
+        error = "Parameter 'passages' must be a non-empty list of strings."
+        logging.error(error)
+        return jsonify({"error": error})
+
+    job = {
+        "params": {
+            "passages": passages,
+            "question": question,
+            "answer": answer,
+            "language": language,
+        },
+        "response": [],
+    }
+    request_queue.put(job)
+    request_queue.join()  # todo: don't block
+    assert len(job["response"]) == 1
+    return jsonify(job["response"][0])
 
 
 class Evaluator:
@@ -69,27 +95,6 @@ class Evaluator:
             "citations": evaluate_citations(passages, answer, self.nli, language),
             "quality": evaluate_quality(question, answer, self.llm, self.sim, language),
         }
-
-
-def evaluate(evaluator):
-    passages = request.args.getlist("passages", None)
-    question = request.args.get("question", None)
-    answer = request.args.get("answer", None)
-    language = request.args.get("language", "polish")
-
-    if not type(question) == str or not type(answer) == str or not type(language) == str or len(question) == 0 or len(answer) == 0 or len(language) == 0:
-        return jsonify({"error": "Parameters 'question', 'answer' and 'language' must be non-empty strings."})
-
-    if not type(passages) == list or len(passages) == 0 or not all(type(p) == str for p in passages):
-        return jsonify({"error": "Parameter 'passages' must be a non-empty list of strings."})
-
-    try:
-        response = evaluator.evaluate(passages, question, answer, language)
-        return jsonify(response)
-    except Exception as e:
-        logging.error(f"error during evaluation: {e}")
-        logging.debug(traceback.format_exc())
-        return jsonify({"error": str(e)})
 
 
 if __name__ == "__main__":
@@ -112,7 +117,7 @@ if __name__ == "__main__":
 
     def signal_handler(sig, frame):
         logging.info("exiting...")
-        request_queue.put((None, {}))
+        request_queue.put(None)
         thread.join()
         exit(0)
 
