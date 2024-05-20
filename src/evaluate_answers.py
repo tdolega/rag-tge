@@ -23,10 +23,8 @@ nltk.download("punkt", quiet=True)
 dataset_by_id = {item["id"]: item for item in get_dataset()}
 
 
-def evaluate_citations(dataset_row, answer, nli):
-    passages = [merge_sentences(passage_sentences) for passage_sentences in dataset_row["context"]["sentences"]]
-
-    sentences = nltk.sent_tokenize(answer, language="english")
+def evaluate_citations(passages, answer, nli, language="english"):
+    sentences = nltk.sent_tokenize(answer, language=language)
     n_sentences = len(sentences)
     # * sentences that are correctly cited by at least one passage
     supported = [0 for _ in range(n_sentences)]
@@ -130,15 +128,15 @@ def evaluate_correctness(dataset_row, answer, nli):
     }
 
 
-def evaluate_quality(dataset_row, answer, llm, sim):
-    _, new_question = llm.generate(
-        system_prompt="Generate a question for the given answer.",
-        user_prompt=f"answer: {answer}",
-    )
+def evaluate_quality(question, answer, llm, sim, language="english"):
+    system_prompt = "Generate a question for the given answer."
+    if language != "english":
+        system_prompt += f" Question must be in {language} language."
+    _, new_question = llm.generate(system_prompt=system_prompt, user_prompt=f"answer: {answer}")
     if new_question.lower().startswith("question: "):
         new_question = new_question[len("question: ") :]
     new_question = new_question.split("\n")[0]
-    _, answer_relevance = sim.calculate(dataset_row["question"], new_question)
+    _, answer_relevance = sim.calculate(question, new_question)
 
     return {
         "answer_relevance": answer_relevance,
@@ -147,11 +145,13 @@ def evaluate_quality(dataset_row, answer, llm, sim):
 
 
 def evaluate_answer(dataset_row, answer, nli, llm, sim):
+    question = dataset_row["question"]
     answer = answer[:1024]  # * truncate the answer to speed up the evaluation, if answer is larger that this, it's never valid anyway
+    passages = [merge_sentences(passage_sentences) for passage_sentences in dataset_row["context"]["sentences"]]
     return {
-        "citations": evaluate_citations(dataset_row, answer, nli),
+        "citations": evaluate_citations(passages, answer, nli),
         "correctness": evaluate_correctness(dataset_row, answer, nli),
-        "quality": evaluate_quality(dataset_row, answer, llm, sim),
+        "quality": evaluate_quality(question, answer, llm, sim),
     }
 
 
