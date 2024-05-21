@@ -67,20 +67,17 @@ def evaluate_citations(passages, answer, nli, language="english"):
                     rest_refs = [ref for ref in refs if ref != passage_idx]
                     passage = "\n".join([passage[passage_idx] for passage_idx in rest_refs])
                     rest_entail = nli.evaluate(passage, decited_sentence)
-                    if rest_entail:
-                        correct_citations[sentence_idx].append(False)
-                    else:
-                        correct_citations[sentence_idx].append(True)
+                    correct_citations[sentence_idx].append(rest_entail == 0)
         else:
             # * only one citation
-            correct_citations[sentence_idx].append(True)
+            correct_citations[sentence_idx].append(joint_entail)
 
     n_total_citations = sum([len(refs) for refs in citations])
     n_correct_citations = sum([sum(refs) for refs in correct_citations])
     ais_recall = sum(supported) / n_sentences if n_sentences > 0 else 0
     ais_precision = n_correct_citations / n_total_citations if n_total_citations > 0 else 0
     n_correctly_multicited_sentences = sum([all(correct_citations[sentence_idx]) for sentence_idx in range(n_sentences) if len(citations[sentence_idx]) > 1])
-    n_overcitations = sum([len(refs) - sum(refs) for refs in correct_citations])
+    n_overcitations = sum([len(refs) - sum(correct_citations[sentence_idx]) for sentence_idx, refs in enumerate(citations) if len(refs) > 1])
 
     return {
         "ais_recall": ais_recall,  # * percent of correctly cited sentences out of all sentences
@@ -129,10 +126,10 @@ def evaluate_correctness(dataset_row, answer, nli):
 
 
 def evaluate_quality(question, answer, llm, sim, language="english"):
-    system_prompt = "Generate a question for the given answer."
+    system_prompt = "Generate a question that results in the following answer. Respond with question and nothing else."
     if language != "english":
-        system_prompt += f" Question must be in {language} language."
-    _, new_question = llm.generate(system_prompt=system_prompt, user_prompt=f"answer: {answer}")
+        system_prompt += f" You must generate question in {language} language."
+    _, new_question = llm.generate(system_prompt=system_prompt, user_prompt=f"Answer: {answer}")
     if new_question.lower().startswith("question: "):
         new_question = new_question[len("question: ") :]
     new_question = new_question.split("\n")[0]
