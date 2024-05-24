@@ -7,7 +7,7 @@ class LLM_BASE:
     temperature = None
     max_new_tokens = 256
 
-    def generate(self, user_prompt: str, system_prompt: str):
+    def generate(self, user_prompt: str, system_prompt: str = ""):
         raise NotImplementedError
 
     def embed(self, text: str):

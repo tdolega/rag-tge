@@ -4,6 +4,7 @@ from common.llms.transformers import LLM_TRANSFORMERS
 from common.llms.awanllm import LLM_AWANLLM
 from common.llms.hfspaces import LLM_HFSPACES
 from common.llms.hfia import LLM_HFIA
+from common.llms.groq import LLM_GROQ
 
 
 def get_llm(args):
@@ -26,6 +27,9 @@ def get_llm(args):
     elif model_name.startswith("hfia_"):
         model_name = model_name[len("hfia_") :]
         model = LLM_HFIA(model_name)
+    elif model_name.startswith("groq_"):
+        model_name = model_name[len("groq_") :]
+        model = LLM_GROQ()
     else:
         raise ValueError(f"Unknown model: {model_name}. Did you forget to add prefix?")
 

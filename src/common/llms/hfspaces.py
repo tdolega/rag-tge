@@ -9,7 +9,7 @@ class LLM_HFSPACES(LLM_BASE):
         self.client = Client(model_name)
 
     ## Qwen
-    def generate(self, user_prompt: str, system_prompt: str):
+    def generate(self, user_prompt: str, system_prompt: str = ""):
         response = self.client.predict(
             system=system_prompt,
             query=user_prompt,
@@ -19,7 +19,7 @@ class LLM_HFSPACES(LLM_BASE):
         return response, response[1][0][1].strip()
 
     ## llama
-    # def generate(self, user_prompt: str, system_prompt: str):
+    # def generate(self, user_prompt: str, system_prompt: str = ""):
     #     response = self.client.predict(
     #         request=system_prompt,
     #         message=user_prompt,

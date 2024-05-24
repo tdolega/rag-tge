@@ -25,7 +25,7 @@ class LLM_TRANSFORMERS(LLM_BASE):
             print("ensuring chat template")
             self.model, self.tokenizer = ensure_chat_template(self.model, self.tokenizer)
 
-    def generate(self, user_prompt: str, system_prompt: str = None):
+    def generate(self, user_prompt: str, system_prompt: str = ""):
         inputs = self.tokenizer.apply_chat_template(self.get_chat(user_prompt, system_prompt), return_tensors="pt", add_generation_prompt=True).to(self.model.device)
         with torch.inference_mode():
             outputs = self.model.generate(

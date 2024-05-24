@@ -1,15 +1,19 @@
-from common.nlis.t5 import NLI_T5
-from common.nlis.interceptor import NLI_INTERCEPTOR
+from common.nlis.true import NLI_TRUE
+from common.nlis.true_interceptor import NLI_TRUE_INTERCEPTOR
+from common.nlis.llm import NLI_LLM
 
 
 def get_nli(args):
     model_name = args.nli
 
-    if model_name.startswith("t5_"):
-        model_name = model_name[len("t5_") :]
-        model = NLI_T5(model_name, device=args.nli_device)
-    elif model_name == "interceptor":
-        model = NLI_INTERCEPTOR()
+    if model_name == "true_interceptor":
+        model = NLI_TRUE_INTERCEPTOR()
+    elif model_name.startswith("true_"):
+        model_name = model_name[len("true_") :]
+        model = NLI_TRUE(model_name, device=args.nli_device)
+    elif model_name.startswith("llm_"):
+        model_name = model_name[len("llm_") :]
+        model = NLI_LLM(model_name)
     else:
         raise ValueError(f"Unknown NLI model: {model_name}, did you forget to add prefix?")
 
@@ -30,8 +34,8 @@ def add_nli_args(parser):
     parser.add_argument(
         "--nli",
         type=str,
-        default="t5_tdolega/t5_xxl_true_nli_mixture-bf16",
-        help='evaluator model name like: "t5_google/t5_xxl_true_nli_mixture" for T5 evaluator',
+        default="true_tdolega/t5_xxl_true_nli_mixture-bf16",
+        help='evaluator model name like: "true_google/t5_xxl_true_nli_mixture" for TRUE T5 evaluator',
     )
     parser.add_argument(
         "--nli_device",

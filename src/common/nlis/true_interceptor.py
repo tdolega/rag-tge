@@ -1,8 +1,8 @@
-from common.nlis.t5 import NLI_T5
+from common.nlis.true import NLI_TRUE
 
 
 # ? used for manual verification of T5
-class NLI_INTERCEPTOR(NLI_T5):
+class NLI_TRUE_INTERCEPTOR(NLI_TRUE):
     def evaluate(self, passage: str, claim: str) -> int:
         ret = super().evaluate(passage, claim)
         print("=== INTERCEPTED ===")

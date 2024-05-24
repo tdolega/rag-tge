@@ -4,6 +4,9 @@ from threading import Thread
 import logging
 import traceback
 import signal
+from dotenv import load_dotenv
+import os
+from functools import cache
 
 from flask import Flask, request, jsonify
 from flask_httpauth import HTTPBasicAuth
@@ -14,15 +17,22 @@ from common.llms import get_llm, add_llm_args
 from common.sims import get_sim, add_sim_args
 from evaluate_answers import evaluate_citations, evaluate_quality
 
+load_dotenv()
+
+assert len(os.getenv("RAGTGE_USER", "").strip()) > 0, "RAGTGE_USER must be set"
+assert len(os.getenv("RAGTGE_PASSWORD", "").strip()) > 0, "RAGTGE_PASSWORD must be set"
 
 users = {
-    "Tymek": generate_password_hash("pnw2024"),
+    os.getenv("RAGTGE_USER"): generate_password_hash(os.getenv("RAGTGE_PASSWORD")),
 }
 
 app = Flask(__name__)
 auth = HTTPBasicAuth()
 request_queue = Queue()
 logging.basicConfig(level=logging.INFO)
+
+werkzeug_logger = logging.getLogger("werkzeug")
+werkzeug_logger.setLevel(logging.ERROR)
 
 
 @auth.verify_password
@@ -71,7 +81,7 @@ def enqueue_request():
 
     job = {
         "params": {
-            "passages": passages,
+            "passages": tuple(passages),
             "question": question,
             "answer": answer,
             "language": language,
@@ -90,6 +100,7 @@ class Evaluator:
         self.llm = get_llm(args)
         self.sim = get_sim(args)
 
+    @cache
     def evaluate(self, passages, question, answer, language):
         return {
             "citations": evaluate_citations(passages, answer, self.nli, language),

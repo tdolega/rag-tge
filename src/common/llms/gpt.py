@@ -9,7 +9,7 @@ class LLM_GPT(LLM_BASE):
     def __init__(self):
         self.client = OpenAI()
 
-    def generate(self, user_prompt: str, system_prompt: str = None):
+    def generate(self, user_prompt: str, system_prompt: str = ""):
         response = self.client.chat.completions.create(
             model=self.model_name,
             messages=self.get_chat(user_prompt, system_prompt),

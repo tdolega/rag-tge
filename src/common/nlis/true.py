@@ -6,7 +6,7 @@ from functools import cache
 from common.utils import get_max_memory
 
 
-class NLI_T5(NLI_BASE):
+class NLI_TRUE(NLI_BASE):
     def __init__(self, model_name, device="auto"):
         self.model = AutoModelForSeq2SeqLM.from_pretrained(
             model_name,

@@ -25,6 +25,33 @@ dataset_by_id = {item["id"]: item for item in get_dataset()}
 
 def evaluate_citations(passages, answer, nli, language="english"):
     sentences = nltk.sent_tokenize(answer, language=language)
+    decited_sentences = [remove_citations(sentence) for sentence in sentences]
+
+    # * some models repeat all citations after the last sentence, remove them...
+    if len(decited_sentences[-1]) == 0:
+        last_refs = get_refs(sentences[-1])
+        all_refs = get_refs(" ".join(sentences[:-1]))
+        if set(last_refs).issubset(all_refs):
+            sentences.pop()
+            decited_sentences.pop()
+
+    # * ...except if it's not the last sentence
+    i = 1
+    while i < len(decited_sentences):
+        if len(decited_sentences[i]) > 0:
+            i += 1
+            continue
+
+        if sentences[i - 1].endswith("."):
+            if sentences[i - 1].endswith("]."):
+                sentences[i - 1] = f"{sentences[i - 1][:-2]}{sentences[i]}."
+            else:
+                sentences[i - 1] = f"{sentences[i - 1][:-1]} {sentences[i]}."
+        else:
+            sentences[i - 1] = f"{sentences[i - 1]}{sentences[i]}"
+        decited_sentences.pop(i)
+        sentences.pop(i)
+
     n_sentences = len(sentences)
     # * sentences that are correctly cited by at least one passage
     supported = [0 for _ in range(n_sentences)]
@@ -36,8 +63,6 @@ def evaluate_citations(passages, answer, nli, language="english"):
     out_of_range = [0 for _ in range(n_sentences)]
 
     for sentence_idx, sentence in enumerate(sentences):
-        decited_sentence = remove_citations(sentence)
-
         refs = get_refs(sentence)
         n_out_of_range = len([ref for ref in refs if ref >= len(passages)])
         if n_out_of_range > 0:  # * citation out of range
@@ -49,7 +74,7 @@ def evaluate_citations(passages, answer, nli, language="english"):
 
         # * calculate the recall score
         joint_passage = "\n".join([passages[ref] for ref in refs])
-        joint_entail = nli.evaluate(joint_passage, decited_sentence)
+        joint_entail = nli.evaluate(joint_passage, decited_sentences[sentence_idx])
         supported[sentence_idx] = joint_entail
 
         # * calculate the precision score if applicable
@@ -58,19 +83,19 @@ def evaluate_citations(passages, answer, nli, language="english"):
             for passage_idx in refs:
                 # * does sentence entail the passage
                 passage = passages[passage_idx]
-                single_entail = nli.evaluate(passage, decited_sentence)
+                single_entail = nli.evaluate(passage, decited_sentences[sentence_idx])
 
                 if single_entail:
-                    correct_citations[sentence_idx].append(True)
+                    correct_citations[sentence_idx].append(single_entail)
                 else:
                     # * overcite check: does rest of the joint passage entail the sentence
                     rest_refs = [ref for ref in refs if ref != passage_idx]
                     passage = "\n".join([passage[passage_idx] for passage_idx in rest_refs])
-                    rest_entail = nli.evaluate(passage, decited_sentence)
-                    correct_citations[sentence_idx].append(rest_entail == 0)
+                    rest_entail = nli.evaluate(passage, decited_sentences[sentence_idx])
+                    correct_citations[sentence_idx].append(rest_entail ^ 1)
         else:
-            # * only one citation
-            correct_citations[sentence_idx].append(joint_entail)
+            for _ in refs:
+                correct_citations[sentence_idx].append(joint_entail)
 
     n_total_citations = sum([len(refs) for refs in citations])
     n_correct_citations = sum([sum(refs) for refs in correct_citations])
