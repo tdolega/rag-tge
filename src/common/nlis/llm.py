@@ -8,15 +8,15 @@ PROMPT_TEMPLATE = """
 I will provide you with a premise and a hypothesis. Your task is to determine whether the hypothesis can be deduced from the premise. If the hypothesis can be deduced from the premise, respond with "True". If the hypothesis cannot be deduced from the premise, respond with "False". Do not provide any explanation, only respond with "True" or "False".
 
 Example:
-Premise: "All birds can fly. Penguins are birds. Penguins cannot fly."
+Premise: "W 1693 Edmond Halley, w oparciu o zestawienia narodzin i zgonów sporządzone przez wrocławskiego pastora Caspara Neumanna, opracował wzorzec obliczania składek emerytalnych dla powstających funduszy ubezpieczeniowych. W analizie jako miasto wzorcowe posłużył mu Wrocław."
 
-Hypothesis: "Some birds cannot fly."
+Hypothesis: "Wrocław posłużył Halleyowi jako miasto wzorcowe w analizie składek emerytalnych."
 
 Response: True
 
-Premise: "The company is releasing a new product next month. The marketing team has already started the campaign."
+Premise: "Wrocław posiada trzeci po Warszawie i Krakowie pod względem wielkości dochodów (5,33 mld zł wg projektu na 2020, 5,4 mld zł wg projektu na 2021 i wydatków 5,65 mld zł w 2020 i 5,9 mld na 2021) budżet w Polsce. Dochody w przeliczeniu na jednego mieszkańca (6025 zł) ustępują jedynie Warszawie. W 2017 wartość PKB wytworzonego we Wrocławiu wyniosła 55,5 mld zł, co stanowiło 2,8% PKB Polski."
 
-Hypothesis: "The product is available for purchase next month."
+Hypothesis: "Wrocław jest trzecim najbogatszym miastem w przeliczeniu na jednego mieszkańca w Polsce."
 
 Response: False
 
@@ -34,6 +34,7 @@ class NLI_LLM:
             temperature = 0.1
 
         self.llm = get_llm(DummyArgs())
+        self.llm.max_new_tokens = 16
         self.model_name = self.llm.model_name
         self.short_model_name = self.llm.short_model_name
 
@@ -42,7 +43,9 @@ class NLI_LLM:
         prompt = PROMPT_TEMPLATE.format(premise=passage, hypothesis=claim)
         for _ in range(N_ATTEMPTS):
             try:
+                print("> invoking LLM")
                 _, response = self.llm.generate(prompt)
+                print(f"> response: {response}")
             except Exception as e:
                 print(f'error: LLM failed with exception "{e}"')
                 time.sleep(1)
