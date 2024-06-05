@@ -1,6 +1,11 @@
 #!/bin/bash
 
 python ../src/serve_evaluator.py \
-    --llm groq_llama3-8b-8192 \
-    --nli llm_groq_llama3-8b-8192 \
+    --llm clarin_llama \
+    --nli llm_clarin_llama \
     "$@"
+
+# python ../src/serve_evaluator.py \
+#     --llm hfia_meta-llama/Meta-Llama-3-8B-Instruct \
+#     --nli llm_hfia_meta-llama/Meta-Llama-3-8B-Instruct \
+#     "$@"

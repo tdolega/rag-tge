@@ -5,6 +5,7 @@ from common.llms.awanllm import LLM_AWANLLM
 from common.llms.hfspaces import LLM_HFSPACES
 from common.llms.hfia import LLM_HFIA
 from common.llms.groq import LLM_GROQ
+from common.llms.clarin import LLM_CLARIN
 
 
 def get_llm(args):
@@ -30,6 +31,9 @@ def get_llm(args):
     elif model_name.startswith("groq_"):
         model_name = model_name[len("groq_") :]
         model = LLM_GROQ()
+    elif model_name.startswith("clarin_"):
+        model_name = model_name[len("clarin_") :]
+        model = LLM_CLARIN()
     else:
         raise ValueError(f"Unknown model: {model_name}. Did you forget to add prefix?")
 
