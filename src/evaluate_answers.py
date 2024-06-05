@@ -158,7 +158,7 @@ def evaluate_quality(question, answer, llm, sim, language="english"):
     if new_question.lower().startswith("question: "):
         new_question = new_question[len("question: ") :]
     new_question = new_question.split("\n")[0]
-    _, answer_relevance = sim.calculate(question, new_question)
+    answer_relevance = sim.calculate(question, new_question)
 
     return {
         "answer_relevance": answer_relevance,
@@ -174,6 +174,29 @@ def evaluate_answer(dataset_row, answer, nli, llm, sim):
         "citations": evaluate_citations(passages, answer, nli),
         "correctness": evaluate_correctness(dataset_row, answer, nli),
         "quality": evaluate_quality(question, answer, llm, sim),
+    }
+
+
+def evaluate_similarity(passages, citations, sim, language="english"):
+    splitted_passages = [nltk.sent_tokenize(passage, language=language) for passage in passages]
+    final_scores = [[0 for _ in range(len(passage_sentences))] for passage_sentences in splitted_passages]
+    for sentence_idx in range(citations["n_sentences"]):
+        sentence = citations["sentences"][sentence_idx]
+        sentence_citations = citations["citations"][sentence_idx]
+        sentence_correct_citations = citations["correct_citations"][sentence_idx]
+        sentence_only_correct_citations = [sentence_citations[i] for i in range(len(sentence_citations)) if sentence_correct_citations[i]]
+        for passage_idx in sentence_only_correct_citations:
+            passage_idx = int(passage_idx)
+            passage_sentences = splitted_passages[passage_idx]
+            scores = sim.calculate_batch(sentence, passage_sentences)
+            for i, score in enumerate(scores):
+                passage_sentence = passage_sentences[i]
+                if len(passage_sentence.strip()) <= 4 and passage_sentence.startswith("§"):
+                    score = 0
+                final_scores[passage_idx][i] = max(final_scores[passage_idx][i], score)
+    return {
+        "passages": splitted_passages,
+        "scores": final_scores,
     }
 
 

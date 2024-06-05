@@ -15,7 +15,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from common.nlis import get_nli, add_nli_args
 from common.llms import get_llm, add_llm_args
 from common.sims import get_sim, add_sim_args
-from evaluate_answers import evaluate_citations, evaluate_quality
+from evaluate_answers import evaluate_citations, evaluate_quality, evaluate_similarity
 
 load_dotenv()
 
@@ -47,15 +47,10 @@ def process_requests(evaluator):
         if job is None:
             break
         try:
-            response = evaluator.evaluate(
-                passages=job["params"]["passages"],
-                question=job["params"]["question"],
-                answer=job["params"]["answer"],
-                language=job["params"]["language"],
-            )
+            response = evaluator.evaluate(**job["params"])
         except Exception as e:
             logging.error(f"error during evaluation: {e}")
-            logging.debug(traceback.format_exc())
+            logging.info(traceback.format_exc())
             response = {"error": str(e)}
         job["response"].append(response)
         request_queue.task_done()
@@ -67,24 +62,75 @@ def enqueue_request():
     passages = request.args.getlist("passages")
     question = request.args.get("question", None)
     answer = request.args.get("answer", None)
+    check_quality = request.args.get("check_quality", None)
+    check_similarity = request.args.get("check_similarity", None)
     language = request.args.get("language", "polish")
 
-    if not type(question) == str or not type(answer) == str or not type(language) == str or len(question) == 0 or len(answer) == 0 or len(language) == 0:
-        error = "Parameters 'question', 'answer' and 'language' must be non-empty strings."
-        logging.error(error)
-        return jsonify({"error": error})
+    def check_string(name, value):
+        if type(value) != str:
+            return f"Parameter '{name}' must be a string."
+        if len(value) == 0:
+            return f"Parameter '{name}' must be a non-empty string."
+        return None
 
-    if not type(passages) == list or len(passages) == 0 or not all(type(p) == str for p in passages):
-        error = "Parameter 'passages' must be a non-empty list of strings."
-        logging.error(error)
-        return jsonify({"error": error})
+    def check_bool(name, value):
+        if type(value) == bool:
+            return None
+        if type(value) != str:
+            return f"Parameter '{name}' must be a string or a boolean."
+        if value.lower() not in ["true", "false"]:
+            return f"Parameter '{name}' must be a string 'true' or 'false' or a boolean."
+        return None
+
+    def check_stringlist(name, value):
+        if not type(value) == list:
+            return f"Parameter '{name}' must be a list."
+        if not all(type(p) == str for p in value):
+            return f"Parameter '{name}' must be a list of strings."
+        if len(value) == 0:
+            return f"Parameter '{name}' must be a non-empty list."
+        return None
+
+    for name, value in [
+        ("question", question),
+        ("answer", answer),
+        ("language", language),
+    ]:
+        error = check_string(name, value)
+        if error:
+            logging.error(error)
+            return jsonify({"error": error})
+
+    for name, value in [
+        ("check_quality", check_quality),
+        ("check_similarity", check_similarity),
+    ]:
+        error = check_bool(name, value)
+        if error:
+            logging.error(error)
+            return jsonify({"error": error})
+
+    check_quality = check_quality.lower() == "true" if type(check_quality) == str else check_quality
+    check_similarity = check_similarity.lower() == "true" if type(check_similarity) == str else check_similarity
+
+    for name, value in [
+        ("passages", passages),
+    ]:
+        error = check_stringlist(name, value)
+        if error:
+            logging.error(error)
+            return jsonify({"error": error})
+
+    passages = tuple(passages)  # allow caching
 
     job = {
         "params": {
-            "passages": tuple(passages),
+            "passages": passages,
             "question": question,
             "answer": answer,
             "language": language,
+            "check_quality": check_quality,
+            "check_similarity": check_similarity,
         },
         "response": [],
     }
@@ -101,10 +147,23 @@ class Evaluator:
         self.sim = get_sim(args)
 
     @cache
-    def evaluate(self, passages, question, answer, language):
+    def evaluate(self, passages, question, answer, language, check_quality, check_similarity):
+        citations = evaluate_citations(passages, answer, self.nli, language)
+
+        if check_quality:
+            quality = evaluate_quality(question, answer, self.llm, self.sim, language)
+        else:
+            quality = None
+
+        if check_similarity:
+            similarity = evaluate_similarity(passages, citations, self.sim, language)
+        else:
+            similarity = None
+
         return {
-            "citations": evaluate_citations(passages, answer, self.nli, language),
-            "quality": evaluate_quality(question, answer, self.llm, self.sim, language),
+            "citations": citations,
+            "quality": quality,
+            "similarity": similarity,
         }
 
 
@@ -129,7 +188,7 @@ if __name__ == "__main__":
     def signal_handler(sig, frame):
         logging.info("exiting...")
         request_queue.put(None)
-        thread.join()
+        # thread.join()
         exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)
