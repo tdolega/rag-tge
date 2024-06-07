@@ -14,7 +14,9 @@ python src/finetune.py \
     --lora_alpha 32 \
     --epochs 2 \
     --data_collator completion \
+    --completion_collator_needle "\nPytanie:" \
     --language pl \
     --dataset_name tdolega/rag-tge_finetuning-dataset_pl \
     --system_prompt_id 6 \
+    --dataset_num_proc 1 \
     "$@"

@@ -13,5 +13,7 @@ python src/finetune.py \
     --lora_alpha 64 \
     --epochs 2 \
     --data_collator completion \
+    --completion_collator_needle "\nQuestion:" \
     --max_seq_length 4096 \
+    --dataset_num_proc 1 \
     "$@"

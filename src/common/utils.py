@@ -5,6 +5,7 @@ import hashlib
 
 from common.prompts import get_system_prompt
 from common.consts import EVAL_SIZE
+from common.llm_finetuning import standardize_chat
 
 
 def get_start_idx(filename):
@@ -92,43 +93,6 @@ def create_prompt(row, prompt_id):
     return user_prompt, system_prompt
 
 
-def ensure_chat_template(model, tokenizer):
-    # tokenizer.padding_side = "left" # controversial
-    if tokenizer.pad_token == None:
-        if "llama-3" in model.name_or_path.lower():
-            print("setting pad token to '<|end_of_text|>'")  # https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct/discussions/101
-            tokenizer.pad_token = "<|end_of_text|>"
-        elif tokenizer.unk_token != None:
-            assert tokenizer.unk_token != tokenizer.eos_token, "unk token is eos token"
-            print("setting pad token to unk token")
-            tokenizer.pad_token = tokenizer.unk_token
-        else:
-            print("WARNING: setting pad token to eos token")
-            tokenizer.pad_token = tokenizer.eos_token
-
-    if tokenizer.chat_template is not None:
-        print("chat template already set")
-        return model, tokenizer
-
-    PAD_TOKEN = "</s>"
-    BOS_TOKEN = "<|im_start|>"
-    EOS_TOKEN = "<|im_end|>"
-
-    print(f"old bos token: {tokenizer.bos_token}, old eos token: {tokenizer.eos_token}, old pad token: {tokenizer.pad_token}")
-
-    # tokenizer.pad_token = PAD_TOKEN
-    tokenizer.add_tokens([BOS_TOKEN])
-    tokenizer.add_special_tokens(dict(eos_token=EOS_TOKEN))
-
-    # ChatML template, from https://huggingface.co/docs/transformers/main/chat_templating
-    tokenizer.chat_template = "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
-
-    model.resize_token_embeddings(len(tokenizer))
-    model.config.eos_token_id = tokenizer.eos_token_id
-
-    return model, tokenizer
-
-
 def get_max_memory(margin_percent=0.2):
     return None
     print("WARNING: using hardcoded max memory mapping")
@@ -136,27 +100,6 @@ def get_max_memory(margin_percent=0.2):
         "cpu": "100GiB",
         0: "10GiB",
     }
-
-
-def standardize_chat(model_name, chat, language="en"):
-    if chat[0]["role"] != "system":
-        return chat
-    LLMS_WITHOUT_SYSTEM_PROMPT = [
-        "mixtral",
-        "mistral",
-        "gemma",
-    ]
-    if not any([name in model_name.lower() for name in LLMS_WITHOUT_SYSTEM_PROMPT]):
-        return chat
-    pseudo_system = [{"role": "user", "content": chat[0]["content"]}]
-    if language == "en":
-        pseudo_system.append({"role": "assistant", "content": "Understood."})
-    elif language == "pl":
-        pseudo_system.append({"role": "assistant", "content": "Rozumiem."})
-    else:
-        raise NotImplementedError(f"language {language} not supported")
-    rest = chat[1:]
-    return pseudo_system + rest
 
 
 def get_chat(model_name, user_prompt: str, system_prompt: str = ""):
