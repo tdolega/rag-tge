@@ -31,13 +31,14 @@ def does_satisfy_train_requirements(result):
     return (
         result["citations"]["ais_recall"] == 1
         and result["citations"]["ais_precision"] == 1
+        and result["citations"]["n_overcitations"] == 0
+        and result["citations"]["n_sentences"] <= 3
+        and len(result["citations"]["out_of_range"]) == 0
         and result["correctness"]["answer_overlap"] == 1
         and result["correctness"]["answer_entail"] == 1
         and result["correctness"]["citations_recall"] == 1
         and result["correctness"]["citations_precision"] == 1
         and result["quality"]["answer_relevance"] > 0.7  # big limiter
-        and result["citations"]["n_overcitations"] == 0
-        and result["citations"]["n_sentences"] <= 3
         and all(sentence.endswith("].") for sentence in result["citations"]["sentences"])
         and not any("document [" in sentence.lower() for sentence in result["citations"]["sentences"])
         and all(any(char.isalpha() for char in sentence) for sentence in result["citations"]["sentences"])
