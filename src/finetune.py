@@ -12,8 +12,8 @@ def main():
     trainer_assistant = LLM_TRAINER_ASSISTANT(
         parser=parser,
         force_args={
-            "dataset_name": DS_UPLOAD_PATH,
-            "output_dir": MODELS_DIR,
+            # "dataset_name": DS_UPLOAD_PATH,
+            "output_dir": "/".join(MODELS_DIR.split("/")[-2:]),
         },
     )
     args = trainer_assistant.args

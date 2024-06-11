@@ -165,3 +165,5 @@ data
 .wandb
 *.gguf
 todo.md
+src/pnw-annotation/*/
+*.jsonl

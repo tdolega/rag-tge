@@ -1,7 +1,7 @@
 import os
 import argparse
 import torch
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from transformers import TrainingArguments, DataCollatorForLanguageModeling, GenerationConfig
 from transformers.integrations import WandbCallback
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
@@ -215,7 +215,7 @@ class LLM_TRAINER_ASSISTANT:
         )
 
         if self.args.lora_dropout != 0:
-            print("WARNING: LoRA dropout is not supported in unsloth, setting it to 0")
+            print("> WARNING: LoRA dropout is not supported in unsloth, setting it to 0")
         self.model = FastLanguageModel.get_peft_model(
             self.model,
             r=self.args.lora_rank,
@@ -271,14 +271,17 @@ class LLM_TRAINER_ASSISTANT:
 
     def init_dataset(self):
         assert self.args.dataset_name, "dataset_name must be provided"
-        ds = load_dataset(self.args.dataset_name)
+        if self.args.dataset_name.startswith("."):
+            ds = load_from_disk(self.args.dataset_name)
+        else:
+            ds = load_dataset(self.args.dataset_name)
         print(ds)
         if self.args.limit_train:
             ds["train"] = ds["train"].select(range(self.args.limit_train))
         if self.args.limit_test:
             ds["test"] = ds["test"].select(range(self.args.limit_test))
         if self.args.limit_train or self.args.limit_test:
-            print("limited dataset:")
+            print("> limited dataset:")
             print(ds)
         self.dataset = ds
 
@@ -304,13 +307,12 @@ class LLM_TRAINER_ASSISTANT:
     def remove_overflowing_samples(self):
         formatter = self.get_formatter()
 
-        def fits_in_context(row):
-            formatted = formatter(row)
-            tokenized_length = len(self.tokenizer(formatted, return_tensors="pt")["input_ids"][0])
-            return tokenized_length <= self.args.max_seq_length
+        def fits_in_context(rows):
+            formatted = formatter(rows)
+            return [len(self.tokenizer(f, return_tensors="pt")["input_ids"][0]) <= self.args.max_seq_length for f in formatted]
 
         len_before = self.dataset_length()
-        self.dataset = self.dataset.filter(fits_in_context)
+        self.dataset = self.dataset.filter(fits_in_context, batched=True)
         len_after = self.dataset_length()
         print(f"> WARNING: removed {len_before - len_after} samples that were too long")
         print(self.dataset)

@@ -33,7 +33,7 @@ def does_satisfy_train_requirements(result):
         and result["citations"]["ais_precision"] == 1
         and result["citations"]["n_overcitations"] == 0
         and result["citations"]["n_sentences"] <= 3
-        and len(result["citations"]["out_of_range"]) == 0
+        and sum(result["citations"]["out_of_range"]) == 0
         and result["correctness"]["answer_overlap"] == 1
         and result["correctness"]["answer_entail"] == 1
         and result["correctness"]["citations_recall"] == 1
