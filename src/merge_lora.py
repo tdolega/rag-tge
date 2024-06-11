@@ -5,7 +5,7 @@ import argparse
 from distutils.util import strtobool
 from dotenv import load_dotenv
 
-from common.utils import ensure_chat_template
+from common.llm_finetuning import ensure_chat_template
 
 load_dotenv()
 

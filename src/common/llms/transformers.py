@@ -2,7 +2,8 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
 from common.llms.base import LLM_BASE
-from common.utils import get_max_memory, ensure_chat_template
+from common.utils import get_max_memory
+from common.llm_finetuning import ensure_chat_template
 
 
 class LLM_TRANSFORMERS(LLM_BASE):
