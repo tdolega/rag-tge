@@ -5,14 +5,15 @@ import nltk
 import os
 
 from common.utils import (
-    get_start_idx,
-    get_dataset,
-    remove_citations,
-    merge_sentences,
     clean_sentence,
-    get_refs,
     filename_to_obj,
+    get_dataset,
+    get_refs,
+    get_start_idx,
+    merge_sentences,
     obj_to_filename,
+    remove_citations,
+    reorder_brackets,
 )
 from common.nlis import get_nli, add_nli_args
 from common.llms import get_llm, add_llm_args
@@ -24,33 +25,10 @@ dataset_by_id = {item["id"]: item for item in get_dataset()}
 
 
 def evaluate_citations(passages, answer, nli, language="english"):
+    answer = reorder_brackets(answer)
+
     sentences = nltk.sent_tokenize(answer, language=language)
     decited_sentences = [remove_citations(sentence) for sentence in sentences]
-
-    # * some models repeat all citations after the last sentence, remove them...
-    if len(decited_sentences[-1]) == 0:
-        last_refs = get_refs(sentences[-1])
-        all_refs = get_refs(" ".join(sentences[:-1]))
-        if set(last_refs).issubset(all_refs):
-            sentences.pop()
-            decited_sentences.pop()
-
-    # * ...except if it's not the last sentence
-    i = 1
-    while i < len(decited_sentences):
-        if len(decited_sentences[i]) > 0:
-            i += 1
-            continue
-
-        if sentences[i - 1].endswith("."):
-            if sentences[i - 1].endswith("]."):
-                sentences[i - 1] = f"{sentences[i - 1][:-2]}{sentences[i]}."
-            else:
-                sentences[i - 1] = f"{sentences[i - 1][:-1]} {sentences[i]}."
-        else:
-            sentences[i - 1] = f"{sentences[i - 1]}{sentences[i]}"
-        decited_sentences.pop(i)
-        sentences.pop(i)
 
     n_sentences = len(sentences)
     # * sentences that are correctly cited by at least one passage

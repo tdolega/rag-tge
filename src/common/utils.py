@@ -111,3 +111,12 @@ def get_chat(model_name, user_prompt: str, system_prompt: str = ""):
             {"role": "user", "content": user_prompt},
         ]
     return standardize_chat(model_name, chat)
+
+
+def reorder_brackets(text):
+    def replace_function(match):
+        brackets = match.group(2)
+        return f" {brackets}."
+
+    pattern = r"(\. *)(\[[0-9\[\]]+\])"
+    return re.sub(pattern, replace_function, text)
