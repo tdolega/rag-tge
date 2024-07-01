@@ -22,11 +22,3 @@ class LLM_GPT(LLM_BASE):
         except Exception as e:
             print("> response", response)
             raise e
-
-    @cache
-    def embed(self, text):
-        response = self.client.embeddings.create(
-            model=self.model_name,
-            input=text,
-        )
-        return response, response.data[0].model_dump()["embedding"]

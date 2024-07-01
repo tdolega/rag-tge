@@ -1,14 +1,11 @@
 from common.nlis.true import NLI_TRUE
-from common.nlis.true_interceptor import NLI_TRUE_INTERCEPTOR
 from common.nlis.llm import NLI_LLM
 
 
 def get_nli(args):
     model_name = args.nli
 
-    if model_name == "true_interceptor":
-        model = NLI_TRUE_INTERCEPTOR()
-    elif model_name.startswith("true_"):
+    if model_name.startswith("true_"):
         model_name = model_name[len("true_") :]
         model = NLI_TRUE(model_name, device=args.nli_device)
     elif model_name.startswith("llm_"):

@@ -1,8 +1,9 @@
 import requests
 import huggingface_hub
-from functools import cache
+from functools import lru_cache
 
 from common.sims.base import SIM_BASE
+from common.consts import CACHE_SIZE
 
 
 # * HuggingFace Inference API
@@ -29,7 +30,7 @@ class SIMS_HFIA(SIM_BASE):
             print("> response", response)
             raise e
 
-    @cache
+    @lru_cache(CACHE_SIZE)
     def calculate(self, sentence1: str, sentence2: str):
         response = self.calculate_batch(sentence1, [sentence2])
         return response[0]

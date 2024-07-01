@@ -1,9 +1,10 @@
 from common.nlis.base import NLI_BASE
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 import torch
-from functools import cache
+from functools import lru_cache
 
 from common.utils import get_max_memory
+from common.consts import CACHE_SIZE
 
 
 class NLI_TRUE(NLI_BASE):
@@ -16,8 +17,9 @@ class NLI_TRUE(NLI_BASE):
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False, legacy=True)
 
-    @cache
+    @lru_cache(CACHE_SIZE)
     def evaluate(self, passage: str, claim: str) -> int:
+        # cut the input if it's too long, but try to keep the claim
         MAX_LENGTH = 512
         SAFE_BUFFER = 8
         passage_tokens = self.tokenizer(passage, return_tensors="pt").input_ids

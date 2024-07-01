@@ -53,8 +53,16 @@ def clean_sentence(sentence):
     return re.sub(r"[^a-z0-9 ]", "", sentence)  # keep only alphanumeric characters and space
 
 
+# 0-indexed instead of 1-indexed like in text
 def get_refs(sentence):
-    citations = [int(citation[1:-1]) - 1 for citation in re.findall(r"\[\d+\]", sentence)]  # 0-indexed instead of 1-indexed like in text
+    # works with [n][m] and [n,m,...] formats
+    matches = re.findall(r"\[\d+(?:,\d+)*\]", sentence)
+
+    citations = []
+    for match in matches:
+        numbers = match[1:-1].split(",")
+        citations.extend([int(num) - 1 for num in numbers])
+
     return sorted(list(set(citations)))
 
 
@@ -118,5 +126,5 @@ def reorder_brackets(text):
         brackets = match.group(2)
         return f" {brackets}."
 
-    pattern = r"(\. *)(\[[0-9\[\]]+\])"
+    pattern = r"(\.\s*)(\[[0-9,\[\]]+\])"
     return re.sub(pattern, replace_function, text)

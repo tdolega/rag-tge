@@ -6,7 +6,7 @@ import traceback
 import signal
 from dotenv import load_dotenv
 import os
-from functools import cache
+from functools import lru_cache
 
 from flask import Flask, request, jsonify
 from flask_httpauth import HTTPBasicAuth
@@ -16,6 +16,7 @@ from common.nlis import get_nli, add_nli_args
 from common.llms import get_llm, add_llm_args
 from common.sims import get_sim, add_sim_args
 from evaluate_answers import evaluate_citations, evaluate_quality, evaluate_similarity
+from common.consts import CACHE_SIZE
 
 load_dotenv()
 
@@ -146,7 +147,7 @@ class Evaluator:
         self.llm = get_llm(args)
         self.sim = get_sim(args)
 
-    @cache
+    @lru_cache(CACHE_SIZE)
     def evaluate(self, passages, question, answer, language, check_quality, check_similarity):
         citations = evaluate_citations(passages, answer, self.nli, language)
 
