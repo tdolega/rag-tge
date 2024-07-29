@@ -71,7 +71,7 @@ def standardize_chat(model_name, chat):
     if not any([name in model_name.lower() for name in LLMS_WITHOUT_SYSTEM_PROMPT]):
         return chat
 
-    raise NotImplementedError("standardize_chat is not implemented for LLMSampleCB")
+    # raise NotImplementedError("standardize_chat is not implemented for LLMSampleCB")
 
     global user_notified_about_standardize_chat
     if not user_notified_about_standardize_chat:

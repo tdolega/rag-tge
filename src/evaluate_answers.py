@@ -51,7 +51,7 @@ def evaluate_citations(passages, answer, nli, language="english"):
         citations[sentence_idx] = refs
 
         # * calculate the recall score
-        joint_passage = "\n".join([passages[ref] for ref in refs])
+        joint_passage = "\n\n".join([passages[ref] for ref in refs])
         joint_entail = nli.evaluate(joint_passage, decited_sentences[sentence_idx])
         supported[sentence_idx] = joint_entail
 
@@ -68,7 +68,7 @@ def evaluate_citations(passages, answer, nli, language="english"):
                 else:
                     # * overcite check: does rest of the joint passage entail the sentence
                     rest_refs = [ref for ref in refs if ref != passage_idx]
-                    passage = "\n".join([passage[passage_idx] for passage_idx in rest_refs])
+                    passage = "\n\n".join([passage[passage_idx] for passage_idx in rest_refs])
                     rest_entail = nli.evaluate(passage, decited_sentences[sentence_idx])
                     correct_citations[sentence_idx].append(rest_entail ^ 1)
         else:
