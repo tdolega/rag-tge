@@ -40,7 +40,7 @@ def get_dataset(limit=None, split="train", level="easy", seed_string="none"):
 
 
 def remove_citations(sentence):
-    return re.sub(r'\s*\[\d+(,\d+)*\]', '', sentence)
+    return re.sub(r"\s*\[\d+(,\d+)*\]", "", sentence)
 
 
 def merge_sentences(sentences):

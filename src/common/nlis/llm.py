@@ -80,7 +80,7 @@ class NLI_LLM:
             try:
                 _, response = self.llm.generate(prompt)
             except Exception as e:
-                print(f'error: NLI_LLM failed with exception: {e}')
+                print(f"error: NLI_LLM failed with exception: {e}")
                 time.sleep(1)
                 continue
 
@@ -91,5 +91,5 @@ class NLI_LLM:
                 return 0
             print(f'warning: LLM returned "{response}" instead of "true" or "false"')
 
-        print(f'error: NLI_LLM failed {N_ATTEMPTS} times. Returning 0.')
+        print(f"error: NLI_LLM failed {N_ATTEMPTS} times. Returning 0.")
         return 0
